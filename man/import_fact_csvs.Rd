@@ -7,14 +7,14 @@
 import_fact_csvs(
   csv_dir,
   pattern = "\\\\.csv$",
-  datetime_col = "datecollected",
-  transmitter_col = "tagname",
+  datetime_col = "dateCollectedUTC",
+  transmitter_col = "tagName",
   station_col = "station",
   receiver_col = "receiver",
-  lat_col = "latitude",
-  lon_col = "longitude",
-  poc_col = "contact_poc",
-  pi_col = "contact_pi",
+  lat_col = "decimalLatitude",
+  lon_col = "decimalLongitude",
+  poc_col = "contactPOC",
+  pi_col = "contactPI",
   verbose = TRUE
 )
 }

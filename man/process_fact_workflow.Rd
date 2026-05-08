@@ -9,6 +9,14 @@ process_fact_workflow(
   reference_dir,
   existing_rdata = NULL,
   output_rdata = NULL,
+  datetime_col = "dateCollectedUTC",
+  transmitter_col = "tagName",
+  station_col = "station",
+  receiver_col = "receiver",
+  lat_col = "decimalLatitude",
+  lon_col = "decimalLongitude",
+  poc_col = "contactPOC",
+  pi_col = "contactPI",
   unwanted_agencies_file = "unwanted_agencies.csv",
   agency_lookup_file = "agency_lookup.csv",
   station_agency_file = "station_agency_reassign.csv",
@@ -28,6 +36,26 @@ process_fact_workflow(
 
 \item{output_rdata}{Optional path for saving updated database. If \code{NULL},
 saves to \code{paste0(dirname(existing_rdata), "/UPDATED_FACT_detections.RData")}.}
+
+\item{datetime_col}{The column name in the FACT CSV file corresponding to the
+date of detection.}
+
+\item{transmitter_col}{The column name in the FACT CSV file corresponding to
+the acoustic transmitter ID.}
+
+\item{station_col}{The column name in the FACT CSV file corresponding to the
+name of the station in which the detection was at.}
+
+\item{receiver_col}{The column name in the FACT CSV file corresponding to the
+acoustic receiver ID.}
+
+\item{lat_col}{The column name in the FACT CSV file corresponding to the latitude.}
+
+\item{lon_col}{The column name in the FACT CSV file corresponding to the longitude.}
+
+\item{poc_col}{The column name in the FACT CSV file corresponding to the person of contact.}
+
+\item{pi_col}{The column name in the FACT CSV file corresponding to the principle investigator.}
 
 \item{unwanted_agencies_file}{Filename of unwanted agencies CSV in \code{reference_dir}.
 Default: \code{"unwanted_agencies.csv"}.}

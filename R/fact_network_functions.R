@@ -626,7 +626,6 @@ merge_fact_databases <- function(
     env <- new.env()
     loaded_data <- load(existing_rdata_file, envir = env)
 
-
     existing_data <- get(loaded_data, envir = env)
     old_FACT_detections <- existing_data
     save(old_FACT_detections, paste0(dirname(existing_rdata_file), "/old_FACT_detections.RData"))

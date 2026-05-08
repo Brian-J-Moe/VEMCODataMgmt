@@ -628,7 +628,7 @@ merge_fact_databases <- function(
 
     existing_data <- get(loaded_data, envir = env)
     old_FACT_detections <- existing_data
-    save(old_FACT_detections, paste0(dirname(existing_rdata_file), "/old_FACT_detections.RData"))
+    save(old_FACT_detections, file = paste0(dirname(existing_rdata_file), "/old_FACT_detections.RData"))
   }
 
   if (!is.null(existing_data)) {
@@ -853,7 +853,6 @@ validate_fact_database <- function(
 
   if (nrow(dup_coords) > 0) {
     say("  ⚠️  Found ", nrow(dup_coords), " coordinate pairs used by multiple stations")
-
 
     dup_coord_details <- station_summary[
       paste(Lat.Rounded, Lon.Rounded) %in%

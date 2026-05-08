@@ -697,9 +697,12 @@ merge_fact_databases <- function(
 
   combined_x <- combined[, .(N = .N), by = dup_cols_adj]
   combined_x <- combined_x[N > 1, ]
+  combined_x[, N := NULL]
 
   new_x <- data.table::rbindlist(list(combined_x, new_dt), fill = TRUE)
-  new_data <- unique(new_x, by = dup_cols_adj)
+  new_x <- new_x[, .(N = .N), by = dup_cols_adj]
+  new_data <- new_x[N == 1, ]
+  new_data <- new_data[, N := NULL]
 
   combined_dt <- unique(combined, by = dup_cols_adj)
 

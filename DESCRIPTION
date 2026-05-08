@@ -1,0 +1,16 @@
+Package: VEMCODataMgmt
+Type: Package
+Title: Functions for Making VEMCO Data Management Smoother and More Efficient
+Version: 0.1.0
+Authors@R: person("Brian", "Moe", , "brian.moe@MYfwc.com", role = c("aut", "cre"))
+Description: Allows for greater organization of newly downloaded VEMCO detection data for further use. Allows for easily 
+  pulling specific detection data (by date or transmitter ID) out of a larger database or subdirectory folders. Some basic functions for 
+  manipulating and combining VEMCO detection data.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.3.3
+Roxygen: list(markdown = TRUE)
+Imports: 
+    data.table,
+    lubridate

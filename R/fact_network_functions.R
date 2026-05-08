@@ -1137,15 +1137,16 @@ process_fact_workflow <- function(
     say("  ✅ Saved: ", output_rdata)
   } else {
     if (!is.null(existing_rdata)) {
-    output_rdata <- file.path(
-      dirname(existing_rdata),
-      "UPDATED_FACT_detections.RData"
-    )
-    say("STEP 6: Saving updated database...")
-    FACT_detections <- fact_combined
-    save(FACT_detections, file = output_rdata)
-    say("  ✅ Saved: ", output_rdata)
-  } else stop("Must specify an output path ('output_rdata')")
+      output_rdata <- file.path(
+        dirname(existing_rdata),
+        "UPDATED_FACT_detections.RData"
+      )
+      say("STEP 6: Saving updated database...")
+      FACT_detections <- fact_combined
+      save(FACT_detections, file = output_rdata)
+      say("  ✅ Saved: ", output_rdata)
+    } else stop("Must specify an output path ('output_rdata')")
+  }
 
   t_end <- Sys.time()
   elapsed <- as.numeric(difftime(t_end, t_start, units = "secs"))

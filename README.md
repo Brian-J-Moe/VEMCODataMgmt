@@ -4,22 +4,15 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of VEMCODataMgmt is to ...
+VEMCODataMgmt is designed for management and data consolidation of Florida Fish and Wildlife, Charlotte Harbor Field Laboratory passive acoustic data. Function included in this package clean and merge data from the FWC Charlotte Harbor array and the FACT and iTAG networks.  
 
 ## Installation
 
 You can install the development version of VEMCODataMgmt like so:
 
 ``` r
-# FILL THIS IN! HOW CAN PEOPLE INSTALL YOUR DEV PACKAGE?
+pak::pak("Brian-J-Moe/VEMCODataMgmt")
 ```
 
-## Example
 
-This is a basic example which shows you how to solve a common problem:
-
-``` r
-library(VEMCODataMgmt)
-## basic example code
-```
 

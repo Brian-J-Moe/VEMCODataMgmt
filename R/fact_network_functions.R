@@ -38,14 +38,14 @@
 import_fact_csvs <- function(
     csv_dir,
     pattern = "\\.csv$",
-    datetime_col = "datecollected",
-    transmitter_col = "tagname",
+    datetime_col = "dateCollectedUTC",
+    transmitter_col = "tagName",
     station_col = "station",
     receiver_col = "receiver",
-    lat_col = "latitude",
-    lon_col = "longitude",
-    poc_col = "contact_poc",
-    pi_col = "contact_pi",
+    lat_col = "decimalLatitude",
+    lon_col = "decimalLongitude",
+    poc_col = "contactPOC",
+    pi_col = "contactPI",
     verbose = TRUE
 ) {
   if (!requireNamespace("data.table", quietly = TRUE))
@@ -905,6 +905,18 @@ validate_fact_database <- function(
 #' @param existing_rdata Optional path to existing FACT database `.RData` file.
 #' @param output_rdata Optional path for saving updated database. If `NULL`,
 #'   saves to `paste0(dirname(existing_rdata), "/UPDATED_FACT_detections.RData")`.
+#' @param datetime_col The column name in the FACT CSV file corresponding to the
+#'   date of detection.
+#' @param transmitter_col The column name in the FACT CSV file corresponding to
+#'   the acoustic transmitter ID.
+#' @param station_col The column name in the FACT CSV file corresponding to the
+#'   name of the station in which the detection was at.
+#' @param receiver_col The column name in the FACT CSV file corresponding to the
+#'   acoustic receiver ID.
+#' @param lat_col The column name in the FACT CSV file corresponding to the latitude.
+#' @param lon_col The column name in the FACT CSV file corresponding to the longitude.
+#' @param poc_col The column name in the FACT CSV file corresponding to the person of contact.
+#' @param pi_col The column name in the FACT CSV file corresponding to the principle investigator.
 #' @param unwanted_agencies_file Filename of unwanted agencies CSV in `reference_dir`.
 #'   Default: `"unwanted_agencies.csv"`.
 #' @param agency_lookup_file Filename of agency lookup CSV in `reference_dir`.
@@ -964,6 +976,14 @@ process_fact_workflow <- function(
     reference_dir,
     existing_rdata = NULL,
     output_rdata = NULL,
+    datetime_col = "dateCollectedUTC",
+    transmitter_col = "tagName",
+    station_col = "station",
+    receiver_col = "receiver",
+    lat_col = "decimalLatitude",
+    lon_col = "decimalLongitude",
+    poc_col = "contactPOC",
+    pi_col = "contactPI",
     unwanted_agencies_file = "unwanted_agencies.csv",
     agency_lookup_file = "agency_lookup.csv",
     station_agency_file = "station_agency_reassign.csv",
@@ -971,7 +991,8 @@ process_fact_workflow <- function(
     master_receivers_file = "MASTER_RECEIVERS.csv",
     validate = TRUE,
     save_validation = TRUE,
-    verbose = TRUE
+    verbose = TRUE,
+
 ) {
   if (!requireNamespace("data.table", quietly = TRUE))
     stop("Package 'data.table' is required.")
@@ -1004,7 +1025,16 @@ process_fact_workflow <- function(
 
   # ---- Step 1: Import CSVs ----
   say("STEP 1: Importing FACT CSV files...")
-  fact_raw <- import_fact_csvs(csv_dir, verbose = verbose)
+  fact_raw <- import_fact_csvs(csv_dir,
+                               datetime_col = datetime_col,
+                               transmitter_col = transmitter_col,
+                               station_col = station_col,
+                               receiver_col = receiver_col,
+                               lat_col = lat_col,
+                               lon_col = lon_col,
+                               poc_col = poc_col,
+                               pi_col = pi_col,
+                               verbose = verbose)
   say()
 
   # ---- Step 2: Process agencies ----

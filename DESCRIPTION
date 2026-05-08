@@ -14,3 +14,5 @@ Roxygen: list(markdown = TRUE)
 Imports: 
     data.table,
     lubridate
+URL: https://github.com/Brian-J-Moe/VEMCODataMgmt
+BugReports: https://github.com/Brian-J-Moe/VEMCODataMgmt/issues

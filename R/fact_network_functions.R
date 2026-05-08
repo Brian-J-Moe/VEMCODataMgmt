@@ -624,12 +624,10 @@ merge_fact_databases <- function(
 
     say("Loading existing database from: ", basename(existing_rdata_file))
     env <- new.env()
-    load(existing_rdata_file, envir = env)
+    loaded_data <- load(existing_rdata_file, envir = env)
 
-    if (!"FACT_detections" %in% ls(envir = env))
-      stop("RData file must contain object named 'FACT_detections'")
 
-    existing_data <- get("FACT_detections", envir = env)
+    existing_data <- get(loaded_data, envir = env)
     old_FACT_detections <- existing_data
     save(old_FACT_detections, paste0(dirname(existing_rdata_file), "/old_FACT_detections.RData"))
   }
@@ -1134,19 +1132,20 @@ process_fact_workflow <- function(
   # ---- Step 6: Save output ----
   if (!is.null(output_rdata)) {
     say("STEP 6: Saving updated database...")
-    UPDATED_FACT_detections <- fact_combined
-    save(UPDATED_FACT_detections, file = output_rdata)
+    FACT_detections <- fact_combined
+    save(FACT_detections, file = output_rdata)
     say("  ✅ Saved: ", output_rdata)
-  } else if (!is.null(existing_rdata)) {
+  } else {
+    if (!is.null(existing_rdata)) {
     output_rdata <- file.path(
       dirname(existing_rdata),
       "UPDATED_FACT_detections.RData"
     )
     say("STEP 6: Saving updated database...")
-    UPDATED_FACT_detections <- fact_combined
-    save(UPDATED_FACT_detections, file = output_rdata)
+    FACT_detections <- fact_combined
+    save(FACT_detections, file = output_rdata)
     say("  ✅ Saved: ", output_rdata)
-  }
+  } else stop("Must specify an output path ('output_rdata')")
 
   t_end <- Sys.time()
   elapsed <- as.numeric(difftime(t_end, t_start, units = "secs"))

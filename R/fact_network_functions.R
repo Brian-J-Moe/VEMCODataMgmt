@@ -991,7 +991,7 @@ process_fact_workflow <- function(
     master_receivers_file = "MASTER_RECEIVERS.csv",
     validate = TRUE,
     save_validation = TRUE,
-    verbose = TRUE,
+    verbose = TRUE
 
 ) {
   if (!requireNamespace("data.table", quietly = TRUE))

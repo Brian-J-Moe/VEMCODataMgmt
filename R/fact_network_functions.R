@@ -551,7 +551,7 @@ apply_fact_corrections <- function(
 #'
 #' @description
 #' Merges new FACT detections with an existing database, handling timestamp
-#' precision mismatches and identifying duplicates. Returns deduplicated
+#' precision mismatches and identifying duplicates. Returns duplicated
 #' combined dataset.
 #'
 #' @param new_data A `data.table` of new FACT detections.
@@ -562,14 +562,14 @@ apply_fact_corrections <- function(
 #' @param datetime_col Character. Name of datetime column. Default: `"Date.Time"`.
 #' @param handle_precision Logical. If `TRUE`, handles timestamp precision
 #'   mismatches by rounding to minute before duplicate checking. Default: `TRUE`.
-#' @param dedup_cols Character vector of columns to use for duplicate detection.
+#' @param dup_cols Character vector of columns to use for duplicate detection.
 #'   Default: `c("Date.Time", "Station.Name", "Transmitter", "Latitude", "Longitude", "Agency")`.
 #' @param verbose Logical. Print progress. Default: `TRUE`.
 #'
 #' @import data.table
 #' @return A list with components:
 #' \describe{
-#'   \item{combined_data}{`data.table` of deduplicated combined detections}
+#'   \item{combined_data}{`data.table` of duplicated combined detections}
 #'   \item{n_new}{Number of new records added}
 #'   \item{n_duplicates}{Number of duplicate records found}
 #'   \item{n_total}{Total records in combined dataset}
@@ -600,7 +600,7 @@ merge_fact_databases <- function(
     existing_rdata_file = NULL,
     datetime_col = "Date.Time",
     handle_precision = TRUE,
-    dedup_cols = c("Date.Time", "Station.Name", "Transmitter",
+    dup_cols = c("Date.Time", "Station.Name", "Transmitter",
                    "Latitude", "Longitude", "Agency"),
     verbose = TRUE
 ) {
@@ -630,6 +630,8 @@ merge_fact_databases <- function(
       stop("RData file must contain object named 'FACT_detections'")
 
     existing_data <- get("FACT_detections", envir = env)
+    old_FACT_detections <- existing_data
+    save(old_FACT_detections, paste0(dirname(existing_rdata_file), "/old_FACT_detections.RData"))
   }
 
   if (!is.null(existing_data)) {
@@ -670,10 +672,10 @@ merge_fact_databases <- function(
       )]
     }
 
-    # Modify dedup_cols to use rounded time
-    dedup_cols_adj <- gsub(datetime_col, "Date.Time.Rounded", dedup_cols)
+    # Modify dup_cols to use rounded time
+    dup_cols_adj <- gsub(datetime_col, "Date.Time.Rounded", dup_cols)
   } else {
-    dedup_cols_adj <- dedup_cols
+    dup_cols_adj <- dup_cols
   }
 
   # Combine datasets
@@ -683,36 +685,44 @@ merge_fact_databases <- function(
     combined <- new_dt
   }
 
-  n_before_dedup <- nrow(combined)
+  n_before_dup <- nrow(combined)
 
   # Remove duplicates
   say("Checking for duplicates...")
 
-  # Verify dedup columns exist
-  missing_dedup <- setdiff(dedup_cols_adj, names(combined))
-  if (length(missing_dedup))
-    stop("Deduplication columns missing: ", paste(missing_dedup, collapse = ", "))
+  # Verify dup columns exist
+  missing_dup <- setdiff(dup_cols_adj, names(combined))
+  if (length(missing_dup))
+    stop("Duplication columns missing: ", paste(missing_dup, collapse = ", "))
 
-  combined_dedup <- unique(combined, by = dedup_cols_adj)
+  combined_x <- combined[, .(N = .N), by = dup_cols_adj]
+  combined_x <- combined_x[N > 1, ]
 
-  n_duplicates <- n_before_dedup - nrow(combined_dedup)
-  n_new <- nrow(combined_dedup) - nrow(existing_dt)
+  new_x <- data.table::rbindlist(list(combined_x, new_dt), fill = TRUE)
+  new_data <- unique(new_x, by = dup_cols_adj)
+
+  combined_dt <- unique(combined, by = dup_cols_adj)
+
+  n_duplicates <- n_before_dup - nrow(combined_dt)
+  n_new <- nrow(combined_dt) - nrow(existing_dt)
 
   # Remove temporary rounded column
   if (isTRUE(handle_precision)) {
-    combined_dedup[, Date.Time.Rounded := NULL]
+    new_data[, Date.Time.Rounded := NULL]
+    combined_dt[, Date.Time.Rounded := NULL]
   }
 
   say("✅ Merge complete:")
-  say("   • Total records: ", format(nrow(combined_dedup), big.mark = ","))
+  say("   • Total records: ", format(nrow(combined_dt), big.mark = ","))
   say("   • New records added: ", format(max(0, n_new), big.mark = ","))
   say("   • Duplicates removed: ", format(n_duplicates, big.mark = ","))
 
   list(
-    combined_data = combined_dedup,
+    combined_data = combined_dt,
+    new_data = new_data,
     n_new = max(0, n_new),
     n_duplicates = n_duplicates,
-    n_total = nrow(combined_dedup)
+    n_total = nrow(combined_dt)
   )
 }
 
@@ -995,6 +1005,8 @@ process_fact_workflow <- function(
     verbose = TRUE
 
 ) {
+
+
   if (!requireNamespace("data.table", quietly = TRUE))
     stop("Package 'data.table' is required.")
 
@@ -1068,6 +1080,7 @@ process_fact_workflow <- function(
   )
 
   fact_combined <- merge_result$combined_data
+  fact_new <- merge_result$new_data
   say()
 
   # ---- Step 5: Validate (optional) ----
@@ -1118,8 +1131,8 @@ process_fact_workflow <- function(
   # ---- Step 6: Save output ----
   if (!is.null(output_rdata)) {
     say("STEP 6: Saving updated database...")
-    FACT_detections <- fact_combined
-    save(FACT_detections, file = output_rdata)
+    UPDATED_FACT_detections <- fact_combined
+    save(UPDATED_FACT_detections, file = output_rdata)
     say("  ✅ Saved: ", output_rdata)
   } else if (!is.null(existing_rdata)) {
     output_rdata <- file.path(
@@ -1127,8 +1140,8 @@ process_fact_workflow <- function(
       "UPDATED_FACT_detections.RData"
     )
     say("STEP 6: Saving updated database...")
-    FACT_detections <- fact_combined
-    save(FACT_detections, file = output_rdata)
+    UPDATED_FACT_detections <- fact_combined
+    save(UPDATED_FACT_detections, file = output_rdata)
     say("  ✅ Saved: ", output_rdata)
   }
 
@@ -1142,7 +1155,8 @@ process_fact_workflow <- function(
   say("========================================\n")
 
   invisible(list(
-    fact_detections = fact_combined,
+    all_detections = fact_combined,
+    new_detections = fact_new,
     merge_stats = list(
       n_new = merge_result$n_new,
       n_duplicates = merge_result$n_duplicates,

@@ -816,6 +816,12 @@ validate_fact_database <- function(
     n_detections = .N
   ), by = .(Station.Name, Latitude, Longitude, Agency)]
 
+  # Add rounded coords to summary for joining
+  station_summary[, `:=`(
+    Lat.Rounded = round(Latitude, coord_precision),
+    Lon.Rounded = round(Longitude, coord_precision)
+  )]
+
   data.table::setorder(station_summary, Station.Name, Agency)
 
   say("  • Total unique stations: ", fact_copy[, uniqueN(Station.Name)])
@@ -838,11 +844,6 @@ validate_fact_database <- function(
   if (nrow(dup_coords) > 0) {
     say("  ⚠️  Found ", nrow(dup_coords), " coordinate pairs used by multiple stations")
 
-    # Add rounded coords to summary for joining
-    station_summary[, `:=`(
-      Lat.Rounded = round(Latitude, coord_precision),
-      Lon.Rounded = round(Longitude, coord_precision)
-    )]
 
     dup_coord_details <- station_summary[
       paste(Lat.Rounded, Lon.Rounded) %in%

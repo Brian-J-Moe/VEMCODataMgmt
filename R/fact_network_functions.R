@@ -197,170 +197,86 @@ process_fact_agencies <- function(
 
   fact_dt <- data.table::as.data.table(fact_data)
 
-  # Validate columns
-  required_cols <- c(station_col, agency_col, lat_col, lon_col)
-  missing_cols <- setdiff(required_cols, names(fact_dt))
-  if (length(missing_cols))
-    stop("Required columns missing: ", paste(missing_cols, collapse = ", "))
+  if (!agency_col %in% names(fact_dt))
+    stop("Column '", agency_col, "' not found in data.")
 
   say <- function(...) if (isTRUE(verbose)) message(...)
 
-  # Standardize column names temporarily
-  col_map <- c(station_col, agency_col, lat_col, lon_col)
-  names(col_map) <- c("Station.Name", "Agency", "Latitude", "Longitude")
+  # Standardize column name temporarily
+  if (agency_col != "Agency")
+    data.table::setnames(fact_dt, old = agency_col, new = "Agency")
 
-  for (std_name in names(col_map)) {
-    orig_name <- col_map[std_name]
-    if (orig_name != std_name && orig_name %in% names(fact_dt)) {
-      data.table::setnames(fact_dt, old = orig_name, new = std_name)
-    }
+  n_start <- nrow(fact_dt)
+
+  # ---- Step 1: Remove unwanted agencies ----
+  if (is.null(unwanted_agencies) && !is.null(unwanted_agencies_file)) {
+    if (!file.exists(unwanted_agencies_file))
+      stop("Unwanted agencies file not found: ", unwanted_agencies_file)
+
+    unwanted_dt <- data.table::fread(unwanted_agencies_file, sep = ",")
+    if (!"Agency" %in% names(unwanted_dt))
+      stop("Unwanted agencies file must have column 'Agency'")
+
+    unwanted_agencies <- unwanted_dt$Agency
   }
 
-  # ---- Step 1: Agency-specific pattern corrections ----
-  if (!is.null(agency_specific_corrections)) {
-    say("Applying agency-specific corrections...")
-
-    for (agency_name in names(agency_specific_corrections)) {
-      rule <- agency_specific_corrections[[agency_name]]
-
-      if (!is.null(rule$pattern) && !is.null(rule$suffix)) {
-        # Add suffix to matching stations
-        fact_dt[grepl(agency_name, Agency) &
-                  grepl(rule$pattern, Station.Name) &
-                  !grepl(rule$suffix, Station.Name),
-                Station.Name := paste0(Station.Name, rule$suffix)]
-
-      } else if (!is.null(rule$pattern) && !is.null(rule$replacement)) {
-        # Replace station name
-        fact_dt[grepl(agency_name, Agency) &
-                  grepl(rule$pattern, Station.Name),
-                Station.Name := gsub(rule$pattern, rule$replacement, Station.Name)]
-      }
-    }
-
-    say("  ✅ Agency-specific corrections applied")
-  }
-
-  # ---- Step 2: Station-specific agency reassignments ----
-  if (is.null(station_agency_reassign) && !is.null(station_agency_file)) {
-    if (!file.exists(station_agency_file))
-      stop("Station agency file not found: ", station_agency_file)
-
-    station_agency_reassign <- data.table::fread(station_agency_file, sep = ",")
-  }
-
-  if (!is.null(station_agency_reassign)) {
-    station_agency_reassign <- data.table::as.data.table(station_agency_reassign)
-
-    if (!all(c("Station.Name", "Agency") %in% names(station_agency_reassign)))
-      stop("Station agency file must have 'Station.Name' and 'Agency' columns")
-
-    say("Applying station-specific agency reassignments (",
-        nrow(station_agency_reassign), " stations)...")
+  if (!is.null(unwanted_agencies) && length(unwanted_agencies) > 0) {
+    say("Filtering ", length(unwanted_agencies), " unwanted agencies...")
 
     if (isTRUE(verbose)) {
-      pb <- utils::txtProgressBar(min = 0, max = nrow(station_agency_reassign), style = 3)
+      pb <- utils::txtProgressBar(min = 0, max = length(unwanted_agencies), style = 3)
     }
 
-    for (i in seq_len(nrow(station_agency_reassign))) {
-      stn <- station_agency_reassign$Station.Name[i]
-      new_agency <- station_agency_reassign$Agency[i]
+    for (i in seq_along(unwanted_agencies)) {
+      pattern <- unwanted_agencies[i]
+      fact_dt <- fact_dt[!grepl(pattern, Agency, ignore.case = FALSE)]
+      if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
+    }
 
-      fact_dt[Station.Name == stn, Agency := new_agency]
+    if (isTRUE(verbose)) close(pb)
+
+    n_removed <- n_start - nrow(fact_dt)
+    say("  Removed ", format(n_removed, big.mark = ","), " records from unwanted agencies")
+  }
+
+  # ---- Step 2: Standardize agency names ----
+  if (is.null(agency_lookup) && !is.null(agency_lookup_file)) {
+    if (!file.exists(agency_lookup_file))
+      stop("Agency lookup file not found: ", agency_lookup_file)
+
+    agency_lookup <- data.table::fread(agency_lookup_file, sep = ",")
+  }
+
+  if (!is.null(agency_lookup)) {
+    agency_lookup <- data.table::as.data.table(agency_lookup)
+
+    if (!all(c("pattern", "standardized") %in% names(agency_lookup)))
+      stop("Agency lookup must have columns 'pattern' and 'standardized'")
+
+    say("Standardizing agency names (", nrow(agency_lookup), " patterns)...")
+
+    if (isTRUE(verbose)) {
+      pb <- utils::txtProgressBar(min = 0, max = nrow(agency_lookup), style = 3)
+    }
+
+    for (i in seq_len(nrow(agency_lookup))) {
+      pattern <- agency_lookup$pattern[i]
+      replacement <- agency_lookup$standardized[i]
+
+      fact_dt[grepl(pattern, Agency, ignore.case = FALSE),
+              Agency := replacement]
 
       if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
     }
 
     if (isTRUE(verbose)) close(pb)
-    say("  ✅ Agency reassignments complete")
+
+    say("  ✅ Agency standardization complete")
   }
 
-  # ---- Step 3: Station name corrections ----
-  if (is.null(station_name_corrections) && !is.null(station_name_file)) {
-    if (!file.exists(station_name_file))
-      stop("Station name file not found: ", station_name_file)
-
-    station_name_corrections <- data.table::fread(station_name_file, sep = ",")
-  }
-
-  if (!is.null(station_name_corrections)) {
-    station_name_corrections <- data.table::as.data.table(station_name_corrections)
-
-    if (!all(c("old_name", "new_name") %in% names(station_name_corrections)))
-      stop("Station name file must have 'old_name' and 'new_name' columns")
-
-    say("Applying station name corrections (",
-        nrow(station_name_corrections), " corrections)...")
-
-    if (isTRUE(verbose)) {
-      pb <- utils::txtProgressBar(min = 0, max = nrow(station_name_corrections), style = 3)
-    }
-
-    for (i in seq_len(nrow(station_name_corrections))) {
-      old_name <- station_name_corrections$old_name[i]
-      new_name <- station_name_corrections$new_name[i]
-
-      # Check if agency-specific
-      fact_dt[Station.Name == old_name, Station.Name := new_name]
-
-      if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
-    }
-
-    if (isTRUE(verbose)) close(pb)
-    say("  ✅ Station name corrections complete")
-  }
-
-  # ---- Step 4: Coordinate updates from master receiver list ----
-  if (is.null(master_receivers) && !is.null(master_receivers_file)) {
-    if (!file.exists(master_receivers_file))
-      stop("Master receivers file not found: ", master_receivers_file)
-
-    master_receivers <- data.table::fread(master_receivers_file, sep = ",")
-  }
-
-  if (!is.null(master_receivers)) {
-    master_receivers <- data.table::as.data.table(master_receivers)
-
-    required_master_cols <- c("Station.Name", "Latitude", "Longitude")
-    if ("Owner" %in% names(master_receivers)) {
-      data.table::setnames(master_receivers, "Owner", "Agency")
-    }
-    required_master_cols <- c(required_master_cols, "Agency")
-
-    missing_master <- setdiff(required_master_cols, names(master_receivers))
-    if (length(missing_master))
-      stop("Master receivers file missing columns: ", paste(missing_master, collapse = ", "))
-
-    say("Updating coordinates from master receiver list (",
-        nrow(master_receivers), " stations)...")
-
-    if (isTRUE(verbose)) {
-      pb <- utils::txtProgressBar(min = 0, max = nrow(master_receivers), style = 3)
-    }
-
-    for (i in seq_len(nrow(master_receivers))) {
-      stn <- master_receivers$Station.Name[i]
-      agn <- master_receivers$Agency[i]
-      lat <- master_receivers$Latitude[i]
-      lon <- master_receivers$Longitude[i]
-
-      fact_dt[Station.Name == stn & Agency == agn,
-              `:=`(Latitude = lat, Longitude = lon)]
-
-      if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
-    }
-
-    if (isTRUE(verbose)) close(pb)
-    say("  ✅ Coordinate updates complete")
-  }
-
-  # Restore original column names if needed
-  for (std_name in names(col_map)) {
-    orig_name <- col_map[std_name]
-    if (orig_name != std_name && std_name %in% names(fact_dt)) {
-      data.table::setnames(fact_dt, old = std_name, new = orig_name)
-    }
-  }
+  # Restore original column name if needed
+  if (agency_col != "Agency")
+    data.table::setnames(fact_dt, old = "Agency", new = agency_col)
 
   fact_dt
 }
@@ -433,19 +349,19 @@ process_fact_agencies <- function(
 #' @seealso [process_fact_agencies()], [merge_fact_databases()]
 #' @export
 apply_fact_corrections <- function(
-    fact_data = fact_filtered
-    station_col = "Station.Name"
-    agency_col = "Agency"
-    lat_col = "Latitude"
-    lon_col = "Longitude"
-    station_agency_reassign = NULL
-    station_agency_file = ref_files$station_agency
-    station_name_corrections = NULL
-    station_name_file = ref_files$station_name
-    master_receivers = NULL
-    master_receivers_file = ref_files$master_receivers
+    fact_data,
+    station_col = "Station.Name",
+    agency_col = "Agency",
+    lat_col = "Latitude",
+    lon_col = "Longitude",
+    station_agency_reassign = NULL,
+    station_agency_file = NULL,
+    station_name_corrections = NULL,
+    station_name_file = NULL,
+    master_receivers = NULL,
+    master_receivers_file = NULL,
     agency_specific_corrections = list(NASA = list(pattern = "CS" | "CC", suffix = "-NASA"),
-                                       FWC  = list(pattern = "V2LGMX-", replacement = ""))
+                                       FWC  = list(pattern = "V2LGMX-", replacement = "")),
     verbose = TRUE
 ) {
   if (!requireNamespace("data.table", quietly = TRUE))
@@ -492,8 +408,8 @@ apply_fact_corrections <- function(
       } else if (!is.null(rule$pattern) && !is.null(rule$replacement)) {
         # Replace station name
         fact_dt[grepl(agency_name, Agency) &
-                  grepl(rule$pattern, Station.Name),
-                Station.Name := gsub(rule$pattern, rule$replacement, Station.Name)]
+                  Station.Name == rule$pattern,
+                Station.Name := rule$replacement]
       }
     }
 
@@ -560,7 +476,14 @@ apply_fact_corrections <- function(
       new_name <- station_name_corrections$new_name[i]
 
       # Check if agency-specific
-      fact_dt[Station.Name == old_name, Station.Name := new_name]
+      if ("Agency" %in% names(station_name_corrections) &&
+          !is.na(station_name_corrections$Agency[i])) {
+        agency_filter <- station_name_corrections$Agency[i]
+        fact_dt[Station.Name == old_name & Agency == agency_filter,
+                Station.Name := new_name]
+      } else {
+        fact_dt[Station.Name == old_name, Station.Name := new_name]
+      }
 
       if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
     }

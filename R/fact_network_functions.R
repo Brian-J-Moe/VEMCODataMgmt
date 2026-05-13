@@ -112,7 +112,7 @@ import_fact_csvs <- function(
 
   # Fill missing Agency with POC
   if ("POC" %in% names(fact_all)) {
-    fact_all[is.na(Agency), Agency := POC]
+    fact_all[, Agency := ifelse(Agency == "" | is.na(Agency), POC, Agency)]
     fact_all[, POC := NULL]
   }
 
@@ -351,7 +351,7 @@ process_fact_agencies <- function(
 apply_fact_corrections <- function(
     fact_data,
     station_col = "Station.Name",
-    agency_col = "Agency",
+    poc_col = "Agency",
     lat_col = "Latitude",
     lon_col = "Longitude",
     station_agency_reassign = NULL,
@@ -1049,6 +1049,7 @@ process_fact_workflow <- function(
                                verbose = verbose)
   say()
 
+  fact
   # ---- Step 2: Process agencies ----
   say("STEP 2: Processing agency assignments...")
   fact_filtered <- process_fact_agencies(

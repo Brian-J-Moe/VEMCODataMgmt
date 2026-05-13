@@ -1079,7 +1079,10 @@ process_fact_workflow <- function(
   )
 
   fact_combined <- merge_result$combined_data
-  fact_new <- merge_result$new_data
+
+  fact_x <- rbind(merge_result$combined_data, fact_corrected)
+
+  fact_new <- fact_x[duplicated(fact_x)]
   say()
 
   # ---- Step 5: Validate (optional) ----

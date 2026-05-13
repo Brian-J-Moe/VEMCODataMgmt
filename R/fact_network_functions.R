@@ -351,7 +351,7 @@ process_fact_agencies <- function(
 apply_fact_corrections <- function(
     fact_data,
     station_col = "Station.Name",
-    poc_col = "Agency",
+    agency_col = "Agency",
     lat_col = "Latitude",
     lon_col = "Longitude",
     station_agency_reassign = NULL,

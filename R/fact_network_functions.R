@@ -213,7 +213,7 @@ process_fact_agencies <- function(
     if (!file.exists(unwanted_agencies_file))
       stop("Unwanted agencies file not found: ", unwanted_agencies_file)
 
-    unwanted_dt <- data.table::fread(unwanted_agencies_file)
+    unwanted_dt <- data.table::fread(unwanted_agencies_file, sep = ",")
     if (!"Agency" %in% names(unwanted_dt))
       stop("Unwanted agencies file must have column 'Agency'")
 
@@ -244,7 +244,7 @@ process_fact_agencies <- function(
     if (!file.exists(agency_lookup_file))
       stop("Agency lookup file not found: ", agency_lookup_file)
 
-    agency_lookup <- data.table::fread(agency_lookup_file)
+    agency_lookup <- data.table::fread(agency_lookup_file, sep = ",")
   }
 
   if (!is.null(agency_lookup)) {
@@ -421,7 +421,7 @@ apply_fact_corrections <- function(
     if (!file.exists(station_agency_file))
       stop("Station agency file not found: ", station_agency_file)
 
-    station_agency_reassign <- data.table::fread(station_agency_file)
+    station_agency_reassign <- data.table::fread(station_agency_file, sep = ",")
   }
 
   if (!is.null(station_agency_reassign)) {
@@ -455,7 +455,7 @@ apply_fact_corrections <- function(
     if (!file.exists(station_name_file))
       stop("Station name file not found: ", station_name_file)
 
-    station_name_corrections <- data.table::fread(station_name_file)
+    station_name_corrections <- data.table::fread(station_name_file, sep = ",")
   }
 
   if (!is.null(station_name_corrections)) {
@@ -497,7 +497,7 @@ apply_fact_corrections <- function(
     if (!file.exists(master_receivers_file))
       stop("Master receivers file not found: ", master_receivers_file)
 
-    master_receivers <- data.table::fread(master_receivers_file)
+    master_receivers <- data.table::fread(master_receivers_file, sep = ",")
   }
 
   if (!is.null(master_receivers)) {

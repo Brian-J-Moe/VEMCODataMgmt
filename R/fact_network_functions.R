@@ -1049,7 +1049,6 @@ process_fact_workflow <- function(
                                verbose = verbose)
   say()
 
-  fact
   # ---- Step 2: Process agencies ----
   say("STEP 2: Processing agency assignments...")
   fact_filtered <- process_fact_agencies(

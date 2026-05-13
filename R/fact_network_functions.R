@@ -360,7 +360,7 @@ apply_fact_corrections <- function(
     station_name_file = NULL,
     master_receivers = NULL,
     master_receivers_file = NULL,
-    agency_specific_corrections = list(NASA = list(pattern = "CS" | "CC", suffix = "-NASA"),
+    agency_specific_corrections = list(NASA = list(pattern = "CS|CC", suffix = "-NASA"),
                                        FWC  = list(pattern = "V2LGMX-", replacement = "")),
     verbose = TRUE
 ) {

@@ -349,19 +349,19 @@ process_fact_agencies <- function(
 #' @seealso [process_fact_agencies()], [merge_fact_databases()]
 #' @export
 apply_fact_corrections <- function(
-    fact_data,
-    station_col = "Station.Name",
-    agency_col = "Agency",
-    lat_col = "Latitude",
-    lon_col = "Longitude",
-    station_agency_reassign = NULL,
-    station_agency_file = NULL,
-    station_name_corrections = NULL,
-    station_name_file = NULL,
-    master_receivers = NULL,
-    master_receivers_file = NULL,
-    agency_specific_corrections = list(NASA = list(pattern = "CS", suffix = "-NASA"),
-                                       FWC  = list(pattern = "V2LGMX-", replacement = "")),
+    fact_data = fact_filtered
+    station_col = "Station.Name"
+    agency_col = "Agency"
+    lat_col = "Latitude"
+    lon_col = "Longitude"
+    station_agency_reassign = NULL
+    station_agency_file = ref_files$station_agency
+    station_name_corrections = NULL
+    station_name_file = ref_files$station_name
+    master_receivers = NULL
+    master_receivers_file = ref_files$master_receivers
+    agency_specific_corrections = list(NASA = list(pattern = "CS" | "CC", suffix = "-NASA"),
+                                       FWC  = list(pattern = "V2LGMX-", replacement = ""))
     verbose = TRUE
 ) {
   if (!requireNamespace("data.table", quietly = TRUE))
@@ -408,8 +408,8 @@ apply_fact_corrections <- function(
       } else if (!is.null(rule$pattern) && !is.null(rule$replacement)) {
         # Replace station name
         fact_dt[grepl(agency_name, Agency) &
-                  Station.Name == rule$pattern,
-                Station.Name := rule$replacement]
+                  grepl(rule$pattern, Station.Name),
+                Station.Name := gsub(rule$pattern, rule$replacement, Station.Name)]
       }
     }
 
@@ -476,14 +476,7 @@ apply_fact_corrections <- function(
       new_name <- station_name_corrections$new_name[i]
 
       # Check if agency-specific
-      if ("Agency" %in% names(station_name_corrections) &&
-          !is.na(station_name_corrections$Agency[i])) {
-        agency_filter <- station_name_corrections$Agency[i]
-        fact_dt[Station.Name == old_name & Agency == agency_filter,
-                Station.Name := new_name]
-      } else {
-        fact_dt[Station.Name == old_name, Station.Name := new_name]
-      }
+      fact_dt[Station.Name == old_name, Station.Name := new_name]
 
       if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
     }

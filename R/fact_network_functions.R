@@ -671,54 +671,39 @@ merge_fact_databases <- function(
 
   # Combine datasets
   if (nrow(existing_dt) > 0) {
-    combined <- data.table::rbindlist(list(existing_dt, new_dt), fill = TRUE)
+    data.table::setDT(existing_dt)
+    data.table::setDT(new_dt)
+
+    new_data <- new_dt[!existing_dt, on = dup_cols_adj]
+    combined_data <- data.table::rbindlist(list(existing_dt, new_data), fill = TRUE)
   } else {
-    combined <- new_dt
+    combineda_data <- new_data <- new_dt
   }
 
-  n_before_dup <- nrow(combined)
-
-  # Remove duplicates
-  say("Checking for duplicates...")
-
-  # Verify dup columns exist
-  missing_dup <- setdiff(dup_cols_adj, names(combined))
-  if (length(missing_dup))
-    stop("Duplication columns missing: ", paste(missing_dup, collapse = ", "))
-
-  combined_x <- combined[, .(N = .N), by = dup_cols_adj]
-  combined_x <- combined_x[N > 1, ]
-  combined_x[, N := NULL]
-
-  new_x <- data.table::rbindlist(list(combined_x, new_dt), fill = TRUE)
-  new_x <- new_x[, .(N = .N), by = dup_cols_adj]
-  new_data <- new_x[N == 1, ]
-  new_data <- new_data[, N := NULL]
 
   save(new_data, file = paste0(dirname(existing_rdata_file), "/new_FACT_detections.RData"))
 
-  combined_dt <- unique(combined, by = dup_cols_adj)
-
-  n_duplicates <- n_before_dup - nrow(combined_dt)
-  n_new <- nrow(combined_dt) - nrow(existing_dt)
+  n_combined <- nrow(combined_data)
+  n_duplicates <- nrow(new_dt) - nrow(new_data)
+  n_new <- nrow(new_data)
 
   # Remove temporary rounded column
   if (isTRUE(handle_precision)) {
     new_data[, Date.Time.Rounded := NULL]
-    combined_dt[, Date.Time.Rounded := NULL]
+    combined_data[, Date.Time.Rounded := NULL]
   }
 
   say("✅ Merge complete:")
-  say("   • Total records: ", format(nrow(combined_dt), big.mark = ","))
-  say("   • New records added: ", format(max(0, n_new), big.mark = ","))
+  say("   • Total records: ", format(n_combined, big.mark = ","))
+  say("   • New records added: ", format(n_new, big.mark = ","))
   say("   • Duplicates removed: ", format(n_duplicates, big.mark = ","))
 
   list(
-    combined_data = combined_dt,
+    combined_data = combined_data,
     new_data = new_data,
     n_new = max(0, n_new),
     n_duplicates = n_duplicates,
-    n_total = nrow(combined_dt)
+    n_total = n_combined
   )
 }
 

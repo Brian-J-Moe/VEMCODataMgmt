@@ -1072,18 +1072,11 @@ process_fact_workflow <- function(
     verbose = verbose
   )
 
-  fact_combined <- merge_result$combined_data
-
-  fact_x <- rbind(merge_result$combined_data, fact_corrected, fill=TRUE)
-
-  fact_new <- fact_x[duplicated(fact_x)]
-  say()
-
   # ---- Step 5: Validate (optional) ----
   validation_result <- NULL
   if (isTRUE(validate)) {
     say("STEP 5: Running validation checks...")
-    validation_result <- validate_fact_database(fact_combined, verbose = verbose)
+    validation_result <- validate_fact_database(merge_result$combined_data, verbose = verbose)
 
     if (isTRUE(save_validation) && !is.null(output_rdata)) {
       out_dir <- dirname(output_rdata)
@@ -1127,7 +1120,7 @@ process_fact_workflow <- function(
   # ---- Step 6: Save output ----
   if (!is.null(output_rdata)) {
     say("STEP 6: Saving updated database...")
-    FACT_detections <- fact_combined
+    FACT_detections <- merge_result$combined_data
     save(FACT_detections, file = output_rdata)
     say("  ✅ Saved: ", output_rdata)
   } else {
@@ -1153,8 +1146,8 @@ process_fact_workflow <- function(
   say("========================================\n")
 
   invisible(list(
-    all_detections = fact_combined,
-    new_detections = fact_new,
+    all_detections = merge_result$combined_data,
+    new_detections = merge_result$new_data,
     merge_stats = list(
       n_new = merge_result$n_new,
       n_duplicates = merge_result$n_duplicates,

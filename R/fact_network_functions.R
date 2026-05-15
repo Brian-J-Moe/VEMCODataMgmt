@@ -1132,7 +1132,7 @@ process_fact_workflow <- function(
         "UPDATED_FACT_detections.RData"
       )
       say("STEP 6: Saving updated database...")
-      FACT_detections <- fact_combined
+      FACT_detections <- merge_result$combined_data
       save(FACT_detections, file = output_rdata)
       say("  ✅ Saved: ", output_rdata)
     } else stop("Must specify an output path ('output_rdata')")

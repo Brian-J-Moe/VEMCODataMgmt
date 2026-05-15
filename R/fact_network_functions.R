@@ -695,6 +695,8 @@ merge_fact_databases <- function(
   new_data <- new_x[N == 1, ]
   new_data <- new_data[, N := NULL]
 
+  save(new_data, file = paste0(dirname(existing_rdata_file), "/new_FACT_detections.RData"))
+
   combined_dt <- unique(combined, by = dup_cols_adj)
 
   n_duplicates <- n_before_dup - nrow(combined_dt)

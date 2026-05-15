@@ -408,8 +408,8 @@ apply_fact_corrections <- function(
       } else if (!is.null(rule$pattern) && !is.null(rule$replacement)) {
         # Replace station name
         fact_dt[grepl(agency_name, Agency) &
-                  Station.Name == rule$pattern,
-                Station.Name := rule$replacement]
+                  grepl(rule$pattern, Station.Name),
+                Station.Name := sub(rule$pattern, rule$replacement, Station.Name)]
       }
     }
 
@@ -476,14 +476,7 @@ apply_fact_corrections <- function(
       new_name <- station_name_corrections$new_name[i]
 
       # Check if agency-specific
-      if ("Agency" %in% names(station_name_corrections) &&
-          !is.na(station_name_corrections$Agency[i])) {
-        agency_filter <- station_name_corrections$Agency[i]
-        fact_dt[Station.Name == old_name & Agency == agency_filter,
-                Station.Name := new_name]
-      } else {
-        fact_dt[Station.Name == old_name, Station.Name := new_name]
-      }
+      fact_dt[Station.Name == old_name, Station.Name := new_name]
 
       if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
     }

@@ -10,7 +10,7 @@ merge_fact_databases(
   existing_rdata_file = NULL,
   datetime_col = "Date.Time",
   handle_precision = TRUE,
-  dedup_cols = c("Date.Time", "Station.Name", "Transmitter", "Latitude", "Longitude",
+  dup_cols = c("Date.Time", "Station.Name", "Transmitter", "Latitude", "Longitude",
     "Agency"),
   verbose = TRUE
 )
@@ -29,7 +29,7 @@ existing data. Object must be named \code{FACT_detections}.}
 \item{handle_precision}{Logical. If \code{TRUE}, handles timestamp precision
 mismatches by rounding to minute before duplicate checking. Default: \code{TRUE}.}
 
-\item{dedup_cols}{Character vector of columns to use for duplicate detection.
+\item{dup_cols}{Character vector of columns to use for duplicate detection.
 Default: \code{c("Date.Time", "Station.Name", "Transmitter", "Latitude", "Longitude", "Agency")}.}
 
 \item{verbose}{Logical. Print progress. Default: \code{TRUE}.}
@@ -37,7 +37,7 @@ Default: \code{c("Date.Time", "Station.Name", "Transmitter", "Latitude", "Longit
 \value{
 A list with components:
 \describe{
-\item{combined_data}{\code{data.table} of deduplicated combined detections}
+\item{combined_data}{\code{data.table} of duplicated combined detections}
 \item{n_new}{Number of new records added}
 \item{n_duplicates}{Number of duplicate records found}
 \item{n_total}{Total records in combined dataset}
@@ -45,7 +45,7 @@ A list with components:
 }
 \description{
 Merges new FACT detections with an existing database, handling timestamp
-precision mismatches and identifying duplicates. Returns deduplicated
+precision mismatches and identifying duplicates. Returns duplicated
 combined dataset.
 }
 \details{

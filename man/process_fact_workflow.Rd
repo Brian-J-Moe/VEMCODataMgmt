@@ -24,7 +24,8 @@ process_fact_workflow(
   master_receivers_file = "MASTER_RECEIVERS.csv",
   validate = TRUE,
   save_validation = TRUE,
-  verbose = TRUE
+  verbose = TRUE,
+  progress_bar = TRUE
 )
 }
 \arguments{

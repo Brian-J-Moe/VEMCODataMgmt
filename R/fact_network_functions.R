@@ -599,8 +599,7 @@ merge_fact_databases <- function(
     handle_precision = TRUE,
     dup_cols = c("Date.Time", "Station.Name", "Transmitter",
                    "Latitude", "Longitude", "Agency"),
-    verbose = TRUE,
-    progress_bar = TRUE
+    verbose = TRUE
 ) {
   if (!requireNamespace("data.table", quietly = TRUE))
     stop("Package 'data.table' is required.")

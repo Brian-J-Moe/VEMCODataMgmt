@@ -15,7 +15,8 @@ import_fact_csvs(
   lon_col = "decimalLongitude",
   poc_col = "contactPOC",
   pi_col = "contactPI",
-  verbose = TRUE
+  verbose = TRUE,
+  progress_bar = TRUE
 )
 }
 \arguments{

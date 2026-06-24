@@ -11,7 +11,8 @@ process_fact_agencies(
   unwanted_agencies_file = NULL,
   agency_lookup = NULL,
   agency_lookup_file = NULL,
-  verbose = TRUE
+  verbose = TRUE,
+  progress_bar = TRUE
 )
 }
 \arguments{

@@ -46,7 +46,8 @@ import_fact_csvs <- function(
     lon_col = "decimalLongitude",
     poc_col = "contactPOC",
     pi_col = "contactPI",
-    verbose = TRUE
+    verbose = TRUE,
+    progress_bar = TRUE
 ) {
   if (!requireNamespace("data.table", quietly = TRUE))
     stop("Package 'data.table' is required.")
@@ -187,7 +188,8 @@ process_fact_agencies <- function(
     unwanted_agencies_file = NULL,
     agency_lookup = NULL,
     agency_lookup_file = NULL,
-    verbose = TRUE
+    verbose = TRUE,
+    progress_bar = TRUE
 ) {
   if (!requireNamespace("data.table", quietly = TRUE))
     stop("Package 'data.table' is required.")
@@ -223,17 +225,17 @@ process_fact_agencies <- function(
   if (!is.null(unwanted_agencies) && length(unwanted_agencies) > 0) {
     say("Filtering ", length(unwanted_agencies), " unwanted agencies...")
 
-    if (isTRUE(verbose)) {
+    if (isTRUE(progress_bar)) {
       pb <- utils::txtProgressBar(min = 0, max = length(unwanted_agencies), style = 3)
     }
 
     for (i in seq_along(unwanted_agencies)) {
       pattern <- unwanted_agencies[i]
       fact_dt <- fact_dt[!grepl(pattern, Agency, ignore.case = FALSE)]
-      if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
+      if (isTRUE(progress_bar)) utils::setTxtProgressBar(pb, i)
     }
 
-    if (isTRUE(verbose)) close(pb)
+    if (isTRUE(progress_bar)) close(pb)
 
     n_removed <- n_start - nrow(fact_dt)
     say("  Removed ", format(n_removed, big.mark = ","), " records from unwanted agencies")
@@ -255,7 +257,7 @@ process_fact_agencies <- function(
 
     say("Standardizing agency names (", nrow(agency_lookup), " patterns)...")
 
-    if (isTRUE(verbose)) {
+    if (isTRUE(progress_bar)) {
       pb <- utils::txtProgressBar(min = 0, max = nrow(agency_lookup), style = 3)
     }
 
@@ -266,10 +268,10 @@ process_fact_agencies <- function(
       fact_dt[grepl(pattern, Agency, ignore.case = FALSE),
               Agency := replacement]
 
-      if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
+      if (isTRUE(progress_bar)) utils::setTxtProgressBar(pb, i)
     }
 
-    if (isTRUE(verbose)) close(pb)
+    if (isTRUE(progress_bar)) close(pb)
 
     say("  ✅ Agency standardization complete")
   }
@@ -362,7 +364,8 @@ apply_fact_corrections <- function(
     master_receivers_file = NULL,
     agency_specific_corrections = list(NASA = list(pattern = "CS|CC", suffix = "-NASA"),
                                        FWC  = list(pattern = "V2LGMX-", replacement = "")),
-    verbose = TRUE
+    verbose = TRUE,
+    progress_bar = TRUE
 ) {
   if (!requireNamespace("data.table", quietly = TRUE))
     stop("Package 'data.table' is required.")
@@ -433,7 +436,7 @@ apply_fact_corrections <- function(
     say("Applying station-specific agency reassignments (",
         nrow(station_agency_reassign), " stations)...")
 
-    if (isTRUE(verbose)) {
+    if (isTRUE(progress_bar)) {
       pb <- utils::txtProgressBar(min = 0, max = nrow(station_agency_reassign), style = 3)
     }
 
@@ -443,10 +446,10 @@ apply_fact_corrections <- function(
 
       fact_dt[Station.Name == stn, Agency := new_agency]
 
-      if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
+      if (isTRUE(progress_bar)) utils::setTxtProgressBar(pb, i)
     }
 
-    if (isTRUE(verbose)) close(pb)
+    if (isTRUE(progress_bar)) close(pb)
     say("  ✅ Agency reassignments complete")
   }
 
@@ -467,7 +470,7 @@ apply_fact_corrections <- function(
     say("Applying station name corrections (",
         nrow(station_name_corrections), " corrections)...")
 
-    if (isTRUE(verbose)) {
+    if (isTRUE(progress_bar)) {
       pb <- utils::txtProgressBar(min = 0, max = nrow(station_name_corrections), style = 3)
     }
 
@@ -478,10 +481,10 @@ apply_fact_corrections <- function(
       # Check if agency-specific
       fact_dt[Station.Name == old_name, Station.Name := new_name]
 
-      if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
+      if (isTRUE(progress_bar)) utils::setTxtProgressBar(pb, i)
     }
 
-    if (isTRUE(verbose)) close(pb)
+    if (isTRUE(progress_bar)) close(pb)
     say("  ✅ Station name corrections complete")
   }
 
@@ -509,7 +512,7 @@ apply_fact_corrections <- function(
     say("Updating coordinates from master receiver list (",
         nrow(master_receivers), " stations)...")
 
-    if (isTRUE(verbose)) {
+    if (isTRUE(progress_bar)) {
       pb <- utils::txtProgressBar(min = 0, max = nrow(master_receivers), style = 3)
     }
 
@@ -522,10 +525,10 @@ apply_fact_corrections <- function(
       fact_dt[Station.Name == stn & Agency == agn,
               `:=`(Latitude = lat, Longitude = lon)]
 
-      if (isTRUE(verbose)) utils::setTxtProgressBar(pb, i)
+      if (isTRUE(progress_bar)) utils::setTxtProgressBar(pb, i)
     }
 
-    if (isTRUE(verbose)) close(pb)
+    if (isTRUE(progress_bar)) close(pb)
     say("  ✅ Coordinate updates complete")
   }
 
@@ -596,7 +599,8 @@ merge_fact_databases <- function(
     handle_precision = TRUE,
     dup_cols = c("Date.Time", "Station.Name", "Transmitter",
                    "Latitude", "Longitude", "Agency"),
-    verbose = TRUE
+    verbose = TRUE,
+    progress_bar = TRUE
 ) {
   if (!requireNamespace("data.table", quietly = TRUE))
     stop("Package 'data.table' is required.")
@@ -982,7 +986,8 @@ process_fact_workflow <- function(
     master_receivers_file = "MASTER_RECEIVERS.csv",
     validate = TRUE,
     save_validation = TRUE,
-    verbose = TRUE
+    verbose = TRUE,
+    progress_bar = TRUE
 
 ) {
 
@@ -1027,7 +1032,8 @@ process_fact_workflow <- function(
                                lon_col = lon_col,
                                poc_col = poc_col,
                                pi_col = pi_col,
-                               verbose = verbose)
+                               verbose = verbose,
+                               progress_bar = progress_bar)
   say()
 
   # ---- Step 2: Process agencies ----
@@ -1036,7 +1042,8 @@ process_fact_workflow <- function(
     fact_raw,
     unwanted_agencies_file = if (file.exists(ref_files$unwanted_agencies)) ref_files$unwanted_agencies else NULL,
     agency_lookup_file = if (file.exists(ref_files$agency_lookup)) ref_files$agency_lookup else NULL,
-    verbose = verbose
+    verbose = verbose,
+    progress_bar = progress_bar
   )
   say()
 
@@ -1047,7 +1054,8 @@ process_fact_workflow <- function(
     station_agency_file = if (file.exists(ref_files$station_agency)) ref_files$station_agency else NULL,
     station_name_file = if (file.exists(ref_files$station_name)) ref_files$station_name else NULL,
     master_receivers_file = if (file.exists(ref_files$master_receivers)) ref_files$master_receivers else NULL,
-    verbose = verbose
+    verbose = verbose,
+    progress_bar = progress_bar
   )
   say()
 

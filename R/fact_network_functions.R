@@ -895,6 +895,8 @@ validate_fact_database <- function(
 #' individual processing functions.
 #'
 #' @param csv_dir Character. Path to directory containing new FACT CSV exports.
+#'   If not defined, `existing_rdata` must be passed to the function, at which point
+#'   that data will then be cleaned and processed.
 #' @param reference_dir Character. Path to directory containing reference files.
 #' @param existing_rdata Optional path to existing FACT database `.RData` file.
 #' @param output_rdata Optional path for saving updated database. If `NULL`,
@@ -1020,8 +1022,44 @@ process_fact_workflow <- function(
             "\nProcessing will continue without these files.")
   }
 
+
+  if(!exists(csv_dir)) {
+    det_data <- existing_rdata
+
+    say("Processing agency assignments...")
+    fact_filtered <- process_fact_agencies(
+      det_data,
+      unwanted_agencies_file = if (file.exists(ref_files$unwanted_agencies)) ref_files$unwanted_agencies else NULL,
+      agency_lookup_file = if (file.exists(ref_files$agency_lookup)) ref_files$agency_lookup else NULL,
+      verbose = verbose,
+      progress_bar = progress_bar
+    )
+    say()
+
+    say("Applying station corrections...")
+    fact_corrected <- apply_fact_corrections(
+      fact_filtered,
+      station_agency_file = if (file.exists(ref_files$station_agency)) ref_files$station_agency else NULL,
+      station_name_file = if (file.exists(ref_files$station_name)) ref_files$station_name else NULL,
+      master_receivers_file = if (file.exists(ref_files$master_receivers)) ref_files$master_receivers else NULL,
+      verbose = verbose,
+      progress_bar = progress_bar
+    )
+    say()
+
+    validation_result <- NULL
+    if (isTRUE(validate)) {
+      say("Running validation checks...")
+      validation_result <- validate_fact_database(fact_corrected, verbose = verbose)
+      say()
+    }
+
+    return(fact_corrected[])
+  }
+
+
   # ---- Step 1: Import CSVs ----
-  say("STEP 1: Importing FACT CSV files...")
+  say("Importing FACT CSV files...")
   fact_raw <- import_fact_csvs(csv_dir,
                                datetime_col = datetime_col,
                                transmitter_col = transmitter_col,
@@ -1036,7 +1074,7 @@ process_fact_workflow <- function(
   say()
 
   # ---- Step 2: Process agencies ----
-  say("STEP 2: Processing agency assignments...")
+  say("Processing agency assignments...")
   fact_filtered <- process_fact_agencies(
     fact_raw,
     unwanted_agencies_file = if (file.exists(ref_files$unwanted_agencies)) ref_files$unwanted_agencies else NULL,
@@ -1047,7 +1085,7 @@ process_fact_workflow <- function(
   say()
 
   # ---- Step 3: Apply corrections ----
-  say("STEP 3: Applying station corrections...")
+  say("Applying station corrections...")
   fact_corrected <- apply_fact_corrections(
     fact_filtered,
     station_agency_file = if (file.exists(ref_files$station_agency)) ref_files$station_agency else NULL,
@@ -1059,7 +1097,7 @@ process_fact_workflow <- function(
   say()
 
   # ---- Step 4: Merge databases ----
-  say("STEP 4: Merging with existing database...")
+  say("Merging with existing database...")
   merge_result <- merge_fact_databases(
     fact_corrected,
     existing_rdata_file = existing_rdata,
@@ -1069,7 +1107,7 @@ process_fact_workflow <- function(
   # ---- Step 5: Validate (optional) ----
   validation_result <- NULL
   if (isTRUE(validate)) {
-    say("STEP 5: Running validation checks...")
+    say("Running validation checks...")
     validation_result <- validate_fact_database(merge_result$combined_data, verbose = verbose)
 
     if (isTRUE(save_validation) && !is.null(output_rdata)) {
@@ -1113,7 +1151,7 @@ process_fact_workflow <- function(
 
   # ---- Step 6: Save output ----
   if (!is.null(output_rdata)) {
-    say("STEP 6: Saving updated database...")
+    say("Saving updated database...")
     FACT_detections <- merge_result$combined_data
     save(FACT_detections, file = output_rdata)
     say("  ✅ Saved: ", output_rdata)
@@ -1123,7 +1161,7 @@ process_fact_workflow <- function(
         dirname(existing_rdata),
         "UPDATED_FACT_detections.RData"
       )
-      say("STEP 6: Saving updated database...")
+      say("Saving updated database...")
       FACT_detections <- merge_result$combined_data
       save(FACT_detections, file = output_rdata)
       say("  ✅ Saved: ", output_rdata)

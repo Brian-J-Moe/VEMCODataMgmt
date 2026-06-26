@@ -29,7 +29,9 @@ process_fact_workflow(
 )
 }
 \arguments{
-\item{csv_dir}{Character. Path to directory containing new FACT CSV exports.}
+\item{csv_dir}{Character. Path to directory containing new FACT CSV exports.
+If not defined, \code{existing_rdata} must be passed to the function, at which point
+that data will then be cleaned and processed.}
 
 \item{reference_dir}{Character. Path to directory containing reference files.}
 

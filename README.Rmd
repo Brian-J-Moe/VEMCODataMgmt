@@ -66,9 +66,12 @@ csv_dir <- "G:/Charlotte Harbor Common/Sawfish/Long Term_InternalTags/Data Recei
 # Path to reference files directory (contains correction look-up tables)
 reference_dir <- "Reference Files"
 
-# Path to existing FACT RData object
-existing_db <- "Data/UPDATED_FACT_detections.RData"
+# Path to existing FACT RData object and where to store the updated version
+existing_db <- "Data/current_FACT_detections.RData"
+output_db   <- "Data/updated_FACT_data.RData"
 
+# Import tagging data
+tagging_data <- data.table::fread("Data/Acoustic Tagged Fish.csv")
 ```
 
 *Note that when loading the "Data/UPDATED_FACT_detections.RData" data file, the object that is loaded into the environment is named `FACT_detections`. To manually load and inspect this object run:*
@@ -87,6 +90,10 @@ library(data.table)
 csv_dir <- "example_folder/FACT csv files"
 reference_dir <- "example_folder/Reference Files"
 existing_db <- "example_folder/Data/example_FACT_data.RData"
+
+output_db <- "example_folder/Data/updated_FACT_data.RData"
+
+tagging_data <- data.table::fread("example_folder/Data/Acoustic Tagged Fish.csv")
 
 load("example_folder/Data/example_FACT_data.RData")
 
@@ -112,7 +119,7 @@ result <- VEMCODataMgmt::process_fact_workflow(
   csv_dir = csv_dir,
   reference_dir = reference_dir,
   existing_rdata = existing_db,
-  output_rdata = NULL,
+  output_rdata = output_db,
   datetime_col = "dateCollectedUTC",
   transmitter_col = "tagName",
   station_col = "station",
@@ -190,6 +197,9 @@ Additionally, `process_fact_workflow()` updates the reference file "MASTER_RECEI
 View the ranges of the `Latitude` and `Longitude` columns. This will help identify false detections from obviously illogical locations (e.g., Canadian waters).
 
 ```{r}
+#| eval: true
+
+load(output_db)
 
 FACT_detections[, .(
   lat_range = range(Latitude),
@@ -198,9 +208,10 @@ FACT_detections[, .(
 
 ```
 
-Check for new PIs that are not already in the reference files. FACT formats the PI field as a single or list of individuals with their names and contact emails. The easiest way to search through the data is to identify data with the at symbol (\@) within it's 'Agency' text string.
+Check for new PIs that are not already in the reference files. FACT formats the PI field as a single or list of individuals with their names and contact emails. The easiest way to search through the data is to identify data with the 'at' symbol (\@) within it's `Agency` text string.
 
 ```{r}
+#| eval: true
 
 # Check Agency column for new PIs
 FACT_detections[grepl("@", Agency), Agency] |> unique()
@@ -210,8 +221,9 @@ FACT_detections[grepl("@", Agency), Agency] |> unique()
 Following any updates to the reference files, the new database can be re-run through `process_fact_workflow()` to correct for any changes.
 
 ```{r}
-
-FACT_detections <- VEMCODataMgmt::process_fact_workflow(
+# Correct any changes made to the reference files by passing ONLY the new output data file path and the reference directory file path.
+revised_FACT_detections <- VEMCODataMgmt::process_fact_workflow(
+  csv_dir = NULL,
   reference_dir = reference_dir,
   existing_rdata = output_rdata
 )
@@ -247,8 +259,15 @@ The following code is used to clean and standardize the new Charlotte Harbor dat
 Before importing and cleaning the new data, we'll want to organize the receiver logs into folders based on the date of download. This allows for efficient cataloging and handling of data and the ability to easily find download logs from specific dates (very useful for finding VPS files needed by Innovasea). First, define the file paths to specific directories and data locations. For this example, all folders with necessary files have been moved into the "README Tutorial" folder to more efficiently define the directory paths. If the folder of interest in housed within the project root directory, only the folder name is required. When calling folders outside the root directory, the full file path is required.
 
 ```{r}
-##| eval: true
+#| eval: true
+#| echo: false
 
+
+vrl_dir <- "example_folder/Receiver Logs"
+out_dir <- "example_folder/Logs by Date"
+```
+
+```{r}
 # Directory containing new VRL/CSV files 
 vrl_dir <- "Receiver Logs"
 
@@ -262,35 +281,35 @@ out_dir <- "Logs by Date"
 Given that receiver logs for a given year are all housed within a single folder, we can define a date (`after_date`) for which the sorting function only evaluates logs downloaded after that date.
 
 ```{r}
-##| eval: true
+#| eval: true
 
 # Optional: Filter downloads after this date (NULL = process all files)
 # Format: "YYYY-MM-DD"
-after_date = after_date <- "2026-03-01"
+after_date = after_date <- "2026-02-01"
 ```
 
 Once both directories have been defined and an `after_date` set, use the functions `sort_VRL_logs()` and `load_detections_by_dates()` to sort newly downloaded logs into their appropriate folders and import the new detections.
 
 ```{r}
-##| eval: true
+#| eval: true
 
 # Sort newly downloaded receiver logs
-sort_result <- sort_VRL_logs(vrl_dir, out_dir, after_date = after_date)
+sort_result <- VEMCODataMgmt::sort_VRL_logs(vrl_dir, out_dir, after_date = after_date)
 
 # Import new data
-new_det_full <- load_detections_by_dates(out_dir, after_date = after_date, verbose = FALSE)
+new_det_full <- VEMCODataMgmt::load_detections_by_date(out_dir, after_date = after_date, verbose = FALSE)
+
+
+# View new data
+new_det_full
 
 ```
 
-These data represent ALL transmitters detected including orphan tags, time syncronization tags, and spatial reference tags. Using a list of deployed tags, extract only those data.
+These data represent ALL transmitters detected including orphan tags, time synchronization tags, and spatial reference tags. Using a list of deployed tags, extract only those data.
 
 ```{r}
-##| eval: true
+#| eval: true
 
-
-tagged_fish_file <- "Data/Acoustic Tagged Fish.csv"
-
-tagging_data <- fread(tagged_fish_file)
 
 # Standardize transmitter names
 tagging_data[, Transmitter := as.character(Transmitter)] # ensures all IDs are character vectors
@@ -313,7 +332,6 @@ new_det <- new_det_full[Transmitter %in% tagging_data$Transmitter]
 The following example code demonstrates how to correct for a receiver initialized with the wrong coordinates (this uses `data.table` formatting).
 
 ```{r}
-
 new_det[`Station Name` == "Glover Bight Creek", `:=` (
   Latitude  = 26.54010,
   Longitude = -81.9914
@@ -324,6 +342,8 @@ new_det[`Station Name` == "Glover Bight Creek", `:=` (
 It's also useful to generate summary statistics for all new data, specific arrays, or individual fish. The following examples walk through those processes when working with a `data.table`.
 
 ```{r}
+#| eval: true
+
 
 # Summarize all new detections for each fish detected
 overall_summary <- new_det[, .(
@@ -333,6 +353,11 @@ overall_summary <- new_det[, .(
   last_det = max(`Date and Time (UTC)`)       # last detection
 ), by = .(Transmitter)][order(Transmitter)]   # group by "Transmitter" and set logical order
 
+overall_summary
+```
+
+```{r}
+#| eval: true
 
 # Summarize by grouped stations or arrays
 glover_bight = c(paste0("GB", 1:19), "Glover Bight", "Glover Bight Creek")
@@ -344,6 +369,11 @@ gb_summary <- gb_det[, .(
   last_det = max(`Date and Time (UTC)`)
 ), by = .(Transmitter)][order(Transmitter)]
 
+gb_summary
+```
+
+```{r}
+#| eval: true
 
 # Summarize for specific fish of interest
 favorite_fish <- list(
@@ -371,6 +401,7 @@ favorite_results <- list()
     }
   }
 
+favorite_results
 ```
 
 

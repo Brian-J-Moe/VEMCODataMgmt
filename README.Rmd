@@ -294,7 +294,7 @@ Once both directories have been defined and an `after_date` set, use the functio
 #| eval: true
 
 # Sort newly downloaded receiver logs
-sort_result <- VEMCODataMgmt::sort_VRL_logs(vrl_dir, out_dir, after_date = after_date)
+sort_result <- VEMCODataMgmt::sort_VRL_logs(vrl_dir, out_dir, after_date = after_date) 
 
 # Import new data
 new_det_full <- VEMCODataMgmt::load_detections_by_date(out_dir, after_date = after_date, verbose = FALSE)
@@ -353,7 +353,7 @@ overall_summary <- new_det[, .(
   last_det = max(`Date and Time (UTC)`)       # last detection
 ), by = .(Transmitter)][order(Transmitter)]   # group by "Transmitter" and set logical order
 
-overall_summary
+head(overall_summary)
 ```
 
 ```{r}
@@ -369,7 +369,7 @@ gb_summary <- gb_det[, .(
   last_det = max(`Date and Time (UTC)`)
 ), by = .(Transmitter)][order(Transmitter)]
 
-gb_summary
+head(gb_summary)
 ```
 
 ```{r}

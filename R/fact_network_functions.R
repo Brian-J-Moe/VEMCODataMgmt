@@ -13,8 +13,6 @@
 #'   Default: `"tagname"`.
 #' @param station_col Character. Name of station column in source CSVs.
 #'   Default: `"station"`.
-#' @param receiver_col Character. Name of receiver column in source CSVs.
-#'   Default: `"receiver"`.
 #' @param lat_col Character. Name of latitude column. Default: `"latitude"`.
 #' @param lon_col Character. Name of longitude column. Default: `"longitude"`.
 #' @param poc_col Character. Name of point-of-contact column. Default: `"contact_poc"`.
@@ -41,7 +39,6 @@ import_fact_csvs <- function(
     datetime_col = "dateCollectedUTC",
     transmitter_col = "tagName",
     station_col = "station",
-    receiver_col = "receiver",
     lat_col = "decimalLatitude",
     lon_col = "decimalLongitude",
     poc_col = "contactPOC",
@@ -86,7 +83,7 @@ import_fact_csvs <- function(
   say("Imported ", format(nrow(fact_all), big.mark = ","), " total records")
 
   # Standardize column names
-  required_cols <- c(datetime_col, transmitter_col, station_col, receiver_col,
+  required_cols <- c(datetime_col, transmitter_col, station_col,
                      lat_col, lon_col)
   missing_cols <- setdiff(required_cols, names(fact_all))
 
@@ -96,16 +93,16 @@ import_fact_csvs <- function(
   # Rename to standard names
   data.table::setnames(
     fact_all,
-    old = c(datetime_col, transmitter_col, station_col, receiver_col,
+    old = c(datetime_col, transmitter_col, station_col,
             lat_col, lon_col, pi_col, poc_col),
-    new = c("Date.Time", "Transmitter", "Station.Name", "Receiver",
+    new = c("Date.Time", "Transmitter", "Station.Name",
             "Latitude", "Longitude", "Agency", "POC"),
     skip_absent = TRUE
   )
 
   # Remove release records
   n_before <- nrow(fact_all)
-  fact_all <- fact_all[tolower(Receiver) != "release"]
+  fact_all <- fact_all[receiver != "release"]
   n_removed <- n_before - nrow(fact_all)
 
   if (n_removed > 0)
@@ -118,7 +115,7 @@ import_fact_csvs <- function(
   }
 
   # Select and order columns
-  keep_cols <- c("Date.Time", "Station.Name", "Receiver", "Transmitter",
+  keep_cols <- c("Date.Time", "Station.Name", "Transmitter",
                  "Latitude", "Longitude", "Agency")
   fact_all <- fact_all[, ..keep_cols]
 
@@ -419,41 +416,7 @@ apply_fact_corrections <- function(
     say("  ✅ Agency-specific corrections applied")
   }
 
-  # ---- Step 2: Station-specific agency reassignments ----
-  if (is.null(station_agency_reassign) && !is.null(station_agency_file)) {
-    if (!file.exists(station_agency_file))
-      stop("Station agency file not found: ", station_agency_file)
-
-    station_agency_reassign <- data.table::fread(station_agency_file, sep = ",")
-  }
-
-  if (!is.null(station_agency_reassign)) {
-    station_agency_reassign <- data.table::as.data.table(station_agency_reassign)
-
-    if (!all(c("Station.Name", "Agency") %in% names(station_agency_reassign)))
-      stop("Station agency file must have 'Station.Name' and 'Agency' columns")
-
-    say("Applying station-specific agency reassignments (",
-        nrow(station_agency_reassign), " stations)...")
-
-    if (isTRUE(progress_bar)) {
-      pb <- utils::txtProgressBar(min = 0, max = nrow(station_agency_reassign), style = 3)
-    }
-
-    for (i in seq_len(nrow(station_agency_reassign))) {
-      stn <- station_agency_reassign$Station.Name[i]
-      new_agency <- station_agency_reassign$Agency[i]
-
-      fact_dt[Station.Name == stn, Agency := new_agency]
-
-      if (isTRUE(progress_bar)) utils::setTxtProgressBar(pb, i)
-    }
-
-    if (isTRUE(progress_bar)) close(pb)
-    say("  ✅ Agency reassignments complete")
-  }
-
-  # ---- Step 3: Station name corrections ----
+  # ---- Step 2: Station name corrections ----
   if (is.null(station_name_corrections) && !is.null(station_name_file)) {
     if (!file.exists(station_name_file))
       stop("Station name file not found: ", station_name_file)
@@ -486,6 +449,40 @@ apply_fact_corrections <- function(
 
     if (isTRUE(progress_bar)) close(pb)
     say("  ✅ Station name corrections complete")
+  }
+
+  # ---- Step 3: Station-specific agency reassignments ----
+  if (is.null(station_agency_reassign) && !is.null(station_agency_file)) {
+    if (!file.exists(station_agency_file))
+      stop("Station agency file not found: ", station_agency_file)
+
+    station_agency_reassign <- data.table::fread(station_agency_file, sep = ",")
+  }
+
+  if (!is.null(station_agency_reassign)) {
+    station_agency_reassign <- data.table::as.data.table(station_agency_reassign)
+
+    if (!all(c("Station.Name", "Agency") %in% names(station_agency_reassign)))
+      stop("Station agency file must have 'Station.Name' and 'Agency' columns")
+
+    say("Applying station-specific agency reassignments (",
+        nrow(station_agency_reassign), " stations)...")
+
+    if (isTRUE(progress_bar)) {
+      pb <- utils::txtProgressBar(min = 0, max = nrow(station_agency_reassign), style = 3)
+    }
+
+    for (i in seq_len(nrow(station_agency_reassign))) {
+      stn <- station_agency_reassign$Station.Name[i]
+      new_agency <- station_agency_reassign$Agency[i]
+
+      fact_dt[Station.Name == stn, Agency := new_agency]
+
+      if (isTRUE(progress_bar)) utils::setTxtProgressBar(pb, i)
+    }
+
+    if (isTRUE(progress_bar)) close(pb)
+    say("  ✅ Agency reassignments complete")
   }
 
   # ---- Step 4: Coordinate updates from master receiver list ----
@@ -547,35 +544,62 @@ apply_fact_corrections <- function(
 #' Merge FACT databases with duplicate detection
 #'
 #' @description
-#' Merges new FACT detections with an existing database, handling timestamp
-#' precision mismatches and identifying duplicates. Returns duplicated
-#' combined dataset.
+#' Merges newly processed FACT detections with an existing FACT database.
+#' Duplicate detections are identified using immutable detection attributes
+#' rather than mutable metadata such as agency or coordinates.
 #'
-#' @param new_data A `data.table` of new FACT detections.
-#' @param existing_data Optional `data.table` of existing detections to merge with.
-#'   If `NULL`, reads from `existing_rdata_file`.
-#' @param existing_rdata_file Optional path to `.RData` file containing
-#'   existing data. Object must be named `FACT_detections`.
-#' @param datetime_col Character. Name of datetime column. Default: `"Date.Time"`.
-#' @param handle_precision Logical. If `TRUE`, handles timestamp precision
-#'   mismatches by rounding to minute before duplicate checking. Default: `TRUE`.
-#' @param dup_cols Character vector of columns to use for duplicate detection.
-#'   Default: `c("Date.Time", "Station.Name", "Transmitter", "Latitude", "Longitude", "Agency")`.
-#' @param verbose Logical. Print progress. Default: `TRUE`.
+#' For detections occurring in both datasets, the incoming (`new_data`) record
+#' is retained. Thus, updated agency assignments, station corrections, and
+#' coordinate corrections from the current FACT processing workflow replace
+#' older metadata.
 #'
-#' @import data.table
-#' @return A list with components:
+#' @param new_data A `data.table` or `data.frame` containing newly processed
+#'   FACT detections.
+#' @param existing_data Optional `data.table` or `data.frame` containing the
+#'   existing FACT database. If `NULL`, data are loaded from
+#'   `existing_rdata_file`.
+#' @param existing_rdata_file Optional path to an `.RData` file containing the
+#'   existing FACT database.
+#' @param datetime_col Character. Name of datetime column.
+#'   Default: `"Date.Time"`.
+#' @param handle_precision Logical. If `TRUE`, detections that do not match
+#'   exactly are also compared at minute precision. Minute-level matching is
+#'   performed only for one-to-one detection pairs within a minute to avoid
+#'   collapsing multiple legitimate detections. Default: `TRUE`.
+#' @param dup_cols Character vector defining detection identity.
+#'   Default: `c("Date.Time", "Station.Name", "Transmitter")`.
+#'   Mutable metadata such as `Agency`, `Latitude`, and `Longitude` should not
+#'   be included.
+#' @param verbose Logical. Print progress messages. Default: `TRUE`.
+#'
+#' @return A list containing:
 #' \describe{
-#'   \item{combined_data}{`data.table` of duplicated combined detections}
-#'   \item{n_new}{Number of new records added}
-#'   \item{n_duplicates}{Number of duplicate records found}
-#'   \item{n_total}{Total records in combined dataset}
+#'   \item{combined_data}{Merged FACT database. Incoming records replace
+#'     overlapping historical records.}
+#'   \item{new_data}{Incoming detections not previously represented in the
+#'     historical database.}
+#'   \item{n_new}{Number of genuinely new detections.}
+#'   \item{n_duplicates}{Number of incoming detections already represented in
+#'     the historical database.}
+#'   \item{n_exact_duplicates}{Number matched using exact timestamps.}
+#'   \item{n_precision_duplicates}{Number matched using the conservative
+#'     minute-precision fallback.}
+#'   \item{n_old_rows_replaced}{Number of historical rows replaced by incoming
+#'     records.}
+#'   \item{n_total}{Total number of records in the merged database.}
 #' }
 #'
 #' @details
-#' When `handle_precision = TRUE`, the function creates a temporary rounded
-#' timestamp column (minute precision) for duplicate detection, but preserves
-#' the original full-precision timestamps in the output.
+#' A biological acoustic detection is defined by transmitter, receiving
+#' station, and detection time. Agency ownership and coordinates are treated
+#' as metadata and therefore do not determine whether two rows represent the
+#' same detection.
+#'
+#' Exact timestamp matches are evaluated first. If `handle_precision = TRUE`,
+#' unmatched detections are subsequently compared after rounding timestamps
+#' to the minute. A minute-level match is accepted only when exactly one
+#' unmatched detection occurs in that station-transmitter-minute combination
+#' in each dataset.
 #'
 #' @examples
 #' \dontrun{
@@ -583,10 +607,6 @@ apply_fact_corrections <- function(
 #'   new_data = fact_corrected,
 #'   existing_rdata_file = "UPDATED_FACT_detections.RData"
 #' )
-#'
-#' # Access components
-#' combined_detections <- merge_result$combined_data
-#' message("Added ", merge_result$n_new, " new records")
 #' }
 #'
 #' @seealso [import_fact_csvs()], [validate_fact_database()]
@@ -597,116 +617,536 @@ merge_fact_databases <- function(
     existing_rdata_file = NULL,
     datetime_col = "Date.Time",
     handle_precision = TRUE,
-    dup_cols = c("Date.Time", "Station.Name", "Transmitter",
-                   "Latitude", "Longitude", "Agency"),
+    dup_cols = c(
+      "Date.Time",
+      "Station.Name",
+      "Transmitter"
+    ),
     verbose = TRUE
 ) {
-  if (!requireNamespace("data.table", quietly = TRUE))
-    stop("Package 'data.table' is required.")
 
-  if (!inherits(new_data, "data.frame"))
-    stop("`new_data` must be a data.frame or data.table.")
-
-  new_dt <- data.table::as.data.table(new_data)
-
-  if (!datetime_col %in% names(new_dt))
-    stop("Datetime column '", datetime_col, "' not found in new_data.")
-
-  say <- function(...) if (isTRUE(verbose)) message(...)
-
-  # Load existing data if needed
-  if (is.null(existing_data) && !is.null(existing_rdata_file)) {
-    if (!file.exists(existing_rdata_file))
-      stop("Existing RData file not found: ", existing_rdata_file)
-
-    say("Loading existing database from: ", basename(existing_rdata_file))
-    env <- new.env()
-    loaded_data <- load(existing_rdata_file, envir = env)
-
-    existing_data <- get(loaded_data, envir = env)
-    old_FACT_detections <- existing_data
-    save(old_FACT_detections, file = paste0(dirname(existing_rdata_file), "/old_FACT_detections.RData"))
+  if (!requireNamespace("data.table", quietly = TRUE)) {
+    stop("Package 'data.table' is required.", call. = FALSE)
   }
 
-  if (!is.null(existing_data)) {
-    existing_dt <- data.table::as.data.table(existing_data)
-
-    if (!datetime_col %in% names(existing_dt))
-      stop("Datetime column '", datetime_col, "' not found in existing_data.")
-
-    say("Existing database: ", format(nrow(existing_dt), big.mark = ","), " records")
-  } else {
-    existing_dt <- data.table::data.table()
-    say("No existing database provided - starting fresh")
+  if (!inherits(new_data, "data.frame")) {
+    stop(
+      "`new_data` must be a data.frame or data.table.",
+      call. = FALSE
+    )
   }
 
-  # Ensure datetime columns are POSIXct
-  if (!inherits(new_dt[[datetime_col]], "POSIXct")) {
-    new_dt[[datetime_col]] <- as.POSIXct(new_dt[[datetime_col]])
+  say <- function(...) {
+    if (isTRUE(verbose)) message(...)
   }
 
-  if (nrow(existing_dt) > 0 && !inherits(existing_dt[[datetime_col]], "POSIXct")) {
-    existing_dt[[datetime_col]] <- as.POSIXct(existing_dt[[datetime_col]])
+  # --------------------------------------------------------------------------
+  # Copy incoming data
+  # --------------------------------------------------------------------------
+
+  new_dt <- data.table::copy(
+    data.table::as.data.table(new_data)
+  )
+
+  # --------------------------------------------------------------------------
+  # Remove exact duplicate incoming rows
+  # --------------------------------------------------------------------------
+
+  n_new_before <- nrow(new_dt)
+
+  new_dt <- unique(new_dt)
+
+  n_exact_row_dups <- n_new_before - nrow(new_dt)
+
+  if (n_exact_row_dups > 0L) {
+    say(
+      "Removed ",
+      format(n_exact_row_dups, big.mark = ","),
+      " exact duplicate row(s) from incoming data"
+    )
   }
 
-  # Handle timestamp precision if requested
-  if (isTRUE(handle_precision)) {
-    say("Handling timestamp precision...")
+  # If a non-standard datetime column is supplied, update the default
+  # detection key accordingly.
+  if (
+    datetime_col != "Date.Time" &&
+    "Date.Time" %in% dup_cols
+  ) {
+    dup_cols[dup_cols == "Date.Time"] <- datetime_col
+  }
 
-    # Create rounded timestamp for duplicate detection
-    new_dt[, Date.Time.Rounded := as.POSIXct(
-      format(get(datetime_col), "%Y-%m-%d %H:%M:00"),
-      tz = attr(get(datetime_col), "tzone") %||% "UTC"
-    )]
+  dup_cols <- unique(c(datetime_col, dup_cols))
 
-    if (nrow(existing_dt) > 0) {
-      existing_dt[, Date.Time.Rounded := as.POSIXct(
-        format(get(datetime_col), "%Y-%m-%d %H:%M:00"),
-        tz = attr(get(datetime_col), "tzone") %||% "UTC"
-      )]
+  # Validate incoming detection-key columns
+  missing_new <- setdiff(dup_cols, names(new_dt))
+
+  if (length(missing_new) > 0L) {
+    stop(
+      "Detection-key columns missing from `new_data`: ",
+      paste(missing_new, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  # --------------------------------------------------------------------------
+  # Load historical database if necessary
+  # --------------------------------------------------------------------------
+
+  if (
+    is.null(existing_data) &&
+    !is.null(existing_rdata_file)
+  ) {
+
+    if (!file.exists(existing_rdata_file)) {
+      stop(
+        "Existing RData file not found: ",
+        existing_rdata_file,
+        call. = FALSE
+      )
     }
 
-    # Modify dup_cols to use rounded time
-    dup_cols_adj <- gsub(datetime_col, "Date.Time.Rounded", dup_cols)
-  } else {
-    dup_cols_adj <- dup_cols
+    say(
+      "Loading existing database from: ",
+      basename(existing_rdata_file)
+    )
+
+    env <- new.env()
+
+    loaded_objects <- load(
+      existing_rdata_file,
+      envir = env
+    )
+
+    # Prefer explicitly named FACT database
+    if ("FACT_detections" %in% loaded_objects) {
+
+      existing_data <- get(
+        "FACT_detections",
+        envir = env
+      )
+
+    } else if (length(loaded_objects) == 1L) {
+
+      existing_data <- get(
+        loaded_objects,
+        envir = env
+      )
+
+    } else {
+
+      stop(
+        "Existing RData file contains multiple objects and none is named ",
+        "'FACT_detections': ",
+        paste(loaded_objects, collapse = ", "),
+        call. = FALSE
+      )
+    }
+
+    # Preserve backup behavior from the original function
+    old_FACT_detections <- existing_data
+
+    save(
+      old_FACT_detections,
+      file = file.path(
+        dirname(existing_rdata_file),
+        "old_FACT_detections.RData"
+      )
+    )
   }
 
-  # Combine datasets
-  if (nrow(existing_dt) > 0) {
-    data.table::setDT(existing_dt)
-    data.table::setDT(new_dt)
+  # --------------------------------------------------------------------------
+  # Handle absence of historical database
+  # --------------------------------------------------------------------------
 
-    new_data <- new_dt[!existing_dt, on = dup_cols_adj]
-    combined_data <- data.table::rbindlist(list(existing_dt, new_data), fill = TRUE)
-  } else {
-    combineda_data <- new_data <- new_dt
+  if (is.null(existing_data)) {
+
+    say("No existing database provided - starting fresh.")
+
+    combined_data <- data.table::copy(new_dt)
+    genuinely_new <- data.table::copy(new_dt)
+
+    return(
+      list(
+        combined_data = combined_data[],
+        new_data = genuinely_new[],
+        n_new = nrow(genuinely_new),
+        n_duplicates = 0L,
+        n_exact_duplicates = 0L,
+        n_precision_duplicates = 0L,
+        n_old_rows_replaced = 0L,
+        n_total = nrow(combined_data)
+      )
+    )
   }
 
+  existing_dt <- data.table::copy(
+    data.table::as.data.table(existing_data)
+  )
 
-  save(new_data, file = paste0(dirname(existing_rdata_file), "/new_FACT_detections.RData"))
+  # --------------------------------------------------------------------------
+  # Remove exact duplicate historical rows
+  # --------------------------------------------------------------------------
 
-  n_combined <- nrow(combined_data)
-  n_duplicates <- nrow(new_dt) - nrow(new_data)
-  n_new <- nrow(new_data)
+  n_old_before <- nrow(existing_dt)
 
-  # Remove temporary rounded column
+  existing_dt <- unique(existing_dt)
+
+  n_old_exact_row_dups <- n_old_before - nrow(existing_dt)
+
+  if (n_old_exact_row_dups > 0L) {
+    say(
+      "Removed ",
+      format(n_old_exact_row_dups, big.mark = ","),
+      " exact duplicate row(s) from existing data"
+    )
+  }
+
+  # Validate historical detection-key columns
+  missing_old <- setdiff(dup_cols, names(existing_dt))
+
+  if (length(missing_old) > 0L) {
+    stop(
+      "Detection-key columns missing from `existing_data`: ",
+      paste(missing_old, collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  say(
+    "Existing database: ",
+    format(nrow(existing_dt), big.mark = ","),
+    " records"
+  )
+
+  say(
+    "Incoming database: ",
+    format(nrow(new_dt), big.mark = ","),
+    " records"
+  )
+
+  # --------------------------------------------------------------------------
+  # Standardize datetime classes
+  # --------------------------------------------------------------------------
+
+  if (!inherits(new_dt[[datetime_col]], "POSIXct")) {
+    new_dt[
+      ,
+      (datetime_col) := as.POSIXct(
+        get(datetime_col),
+        tz = "UTC"
+      )
+    ]
+  }
+
+  if (!inherits(existing_dt[[datetime_col]], "POSIXct")) {
+    existing_dt[
+      ,
+      (datetime_col) := as.POSIXct(
+        get(datetime_col),
+        tz = "UTC"
+      )
+    ]
+  }
+
+  # Internal row identifiers are used only during matching
+  new_dt[, .merge_new_id := .I]
+  existing_dt[, .merge_old_id := .I]
+
+  # --------------------------------------------------------------------------
+  # Check for internal duplicate detection keys
+  # --------------------------------------------------------------------------
+
+  new_internal_dups <- new_dt[
+    ,
+    .N,
+    by = dup_cols
+  ][N > 1L]
+
+  old_internal_dups <- existing_dt[
+    ,
+    .N,
+    by = dup_cols
+  ][N > 1L]
+
+  if (nrow(new_internal_dups) > 0L) {
+    warning(
+      "Incoming FACT data contain ",
+      nrow(new_internal_dups),
+      " duplicated exact detection key(s). These records are not ",
+      "automatically collapsed by the merge.",
+      call. = FALSE
+    )
+  }
+
+  if (nrow(old_internal_dups) > 0L) {
+    say(
+      "  • Existing database contains ",
+      format(nrow(old_internal_dups), big.mark = ","),
+      " duplicated exact detection key(s)"
+    )
+  }
+
+  # ==========================================================================
+  # STEP 1: Exact timestamp matching
+  # ==========================================================================
+
+  say("Matching detections using exact timestamps...")
+
+  exact_new_ids <- unique(
+    new_dt[
+      existing_dt,
+      on = dup_cols,
+      nomatch = 0L,
+      allow.cartesian = TRUE,
+      .merge_new_id
+    ]
+  )
+
+  exact_old_ids <- unique(
+    existing_dt[
+      new_dt,
+      on = dup_cols,
+      nomatch = 0L,
+      allow.cartesian = TRUE,
+      .merge_old_id
+    ]
+  )
+
+  say(
+    "  • Exact overlaps: ",
+    format(length(exact_new_ids), big.mark = ",")
+  )
+
+  # ==========================================================================
+  # STEP 2: Conservative minute-precision matching
+  # ==========================================================================
+
+  precision_new_ids <- integer(0L)
+  precision_old_ids <- integer(0L)
+
   if (isTRUE(handle_precision)) {
-    new_data[, Date.Time.Rounded := NULL]
-    combined_data[, Date.Time.Rounded := NULL]
+
+    say("Checking unmatched detections for timestamp precision differences...")
+
+    # Convert epoch seconds to minute bins.
+    #
+    # Using numeric POSIX time avoids complications caused by differing
+    # display-time-zone attributes.
+    round_to_minute <- function(x) {
+
+      as.POSIXct(
+        floor(as.numeric(x) / 60) * 60,
+        origin = "1970-01-01",
+        tz = "UTC"
+      )
+    }
+
+    new_dt[
+      ,
+      Date.Time.Rounded := round_to_minute(
+        get(datetime_col)
+      )
+    ]
+
+    existing_dt[
+      ,
+      Date.Time.Rounded := round_to_minute(
+        get(datetime_col)
+      )
+    ]
+
+    minute_cols <- c(
+      "Date.Time.Rounded",
+      setdiff(dup_cols, datetime_col)
+    )
+
+    # Only consider records that did not already match exactly
+    new_minute_summary <- new_dt[
+      !.merge_new_id %in% exact_new_ids,
+      .(
+        n_new = .N,
+        new_id = .merge_new_id[1L]
+      ),
+      by = minute_cols
+    ]
+
+    old_minute_summary <- existing_dt[
+      !.merge_old_id %in% exact_old_ids,
+      .(
+        n_old = .N,
+        old_id = .merge_old_id[1L]
+      ),
+      by = minute_cols
+    ]
+
+    # Identify station-transmitter-minute combinations occurring in both
+    # datasets.
+    precision_matches <- base::merge(
+      new_minute_summary,
+      old_minute_summary,
+      by = minute_cols,
+      all = FALSE
+    )
+
+    # Crucially, accept a rounded-time match only when the relationship is
+    # one-to-one. This prevents two legitimate detections occurring within
+    # the same minute from being collapsed.
+    precision_matches <- precision_matches[
+      n_new == 1L &
+        n_old == 1L
+    ]
+
+    precision_new_ids <- precision_matches$new_id
+    precision_old_ids <- precision_matches$old_id
+
+    say(
+      "  • Precision-matched overlaps: ",
+      format(length(precision_new_ids), big.mark = ",")
+    )
   }
+
+  # ==========================================================================
+  # STEP 3: Determine overlapping and genuinely new detections
+  # ==========================================================================
+
+  matched_new_ids <- unique(
+    c(
+      exact_new_ids,
+      precision_new_ids
+    )
+  )
+
+  matched_old_ids <- unique(
+    c(
+      exact_old_ids,
+      precision_old_ids
+    )
+  )
+
+  # Incoming detections that have never appeared in the old database
+  genuinely_new <- new_dt[
+    !.merge_new_id %in% matched_new_ids
+  ]
+
+  # Historical detections not represented in the new FACT export
+  old_only <- existing_dt[
+    !.merge_old_id %in% matched_old_ids
+  ]
+
+  # ==========================================================================
+  # STEP 4: Build updated database
+  #
+  # IMPORTANT:
+  #
+  # We append ALL incoming detections, not merely genuinely_new.
+  #
+  # Historical copies of overlapping detections have already been removed
+  # above. Thus the incoming row becomes authoritative and its Agency,
+  # coordinates, and other metadata are retained.
+  # ==========================================================================
+
+  combined_data <- data.table::rbindlist(
+    list(
+      old_only,
+      new_dt
+    ),
+    use.names = TRUE,
+    fill = TRUE
+  )
+
+  # --------------------------------------------------------------------------
+  # Remove temporary merge columns
+  # --------------------------------------------------------------------------
+
+  temp_cols <- c(
+    ".merge_new_id",
+    ".merge_old_id",
+    "Date.Time.Rounded"
+  )
+
+  drop_temp_cols <- function(x) {
+
+    cols <- intersect(
+      temp_cols,
+      names(x)
+    )
+
+    if (length(cols) > 0L) {
+      x[, (cols) := NULL]
+    }
+
+    x
+  }
+
+  combined_data <- drop_temp_cols(combined_data)
+  genuinely_new <- drop_temp_cols(genuinely_new)
+
+  # --------------------------------------------------------------------------
+  # Statistics
+  # --------------------------------------------------------------------------
+
+  n_exact_duplicates <- length(exact_new_ids)
+  n_precision_duplicates <- length(precision_new_ids)
+
+  n_duplicates <- length(matched_new_ids)
+  n_old_rows_replaced <- length(matched_old_ids)
+
+  n_new <- nrow(genuinely_new)
+  n_total <- nrow(combined_data)
 
   say("✅ Merge complete:")
-  say("   • Total records: ", format(n_combined, big.mark = ","))
-  say("   • New records added: ", format(n_new, big.mark = ","))
-  say("   • Duplicates removed: ", format(n_duplicates, big.mark = ","))
+  say(
+    "   • Total records: ",
+    format(n_total, big.mark = ",")
+  )
+  say(
+    "   • Genuinely new detections: ",
+    format(n_new, big.mark = ",")
+  )
+  say(
+    "   • Existing detections updated: ",
+    format(n_duplicates, big.mark = ",")
+  )
+  say(
+    "       - exact timestamp: ",
+    format(n_exact_duplicates, big.mark = ",")
+  )
+
+  if (isTRUE(handle_precision)) {
+    say(
+      "       - minute-precision fallback: ",
+      format(n_precision_duplicates, big.mark = ",")
+    )
+  }
+
+  if (n_old_rows_replaced != n_duplicates) {
+    say(
+      "   • Historical rows replaced: ",
+      format(n_old_rows_replaced, big.mark = ","),
+      " (includes pre-existing duplicates)"
+    )
+  }
+
+  # Preserve the original diagnostic output if an RData path was supplied
+  if (!is.null(existing_rdata_file)) {
+    save(
+      genuinely_new,
+      file = file.path(
+        dirname(existing_rdata_file),
+        "new_FACT_detections.RData"
+      )
+    )
+  }
 
   list(
-    combined_data = combined_data,
-    new_data = new_data,
-    n_new = max(0, n_new),
+    combined_data = combined_data[],
+    new_data = genuinely_new[],
+    n_new = n_new,
     n_duplicates = n_duplicates,
-    n_total = n_combined
+    n_exact_duplicates = n_exact_duplicates,
+    n_precision_duplicates = n_precision_duplicates,
+    n_old_rows_replaced = n_old_rows_replaced,
+    n_total = n_total
   )
 }
 
@@ -907,8 +1347,6 @@ validate_fact_database <- function(
 #'   the acoustic transmitter ID.
 #' @param station_col The column name in the FACT CSV file corresponding to the
 #'   name of the station in which the detection was at.
-#' @param receiver_col The column name in the FACT CSV file corresponding to the
-#'   acoustic receiver ID.
 #' @param lat_col The column name in the FACT CSV file corresponding to the latitude.
 #' @param lon_col The column name in the FACT CSV file corresponding to the longitude.
 #' @param poc_col The column name in the FACT CSV file corresponding to the person of contact.
@@ -968,14 +1406,13 @@ validate_fact_database <- function(
 #'   [merge_fact_databases()], [validate_fact_database()]
 #' @export
 process_fact_workflow <- function(
-    csv_dir,
+    csv_dir = NULL,
     reference_dir,
     existing_rdata = NULL,
     output_rdata = NULL,
     datetime_col = "dateCollectedUTC",
     transmitter_col = "tagName",
     station_col = "station",
-    receiver_col = "receiver",
     lat_col = "decimalLatitude",
     lon_col = "decimalLongitude",
     poc_col = "contactPOC",
@@ -1023,12 +1460,14 @@ process_fact_workflow <- function(
   }
 
 
-  if(!exists(csv_dir)) {
-    det_data <- existing_rdata
+  if(is.null(csv_dir)) {
+    env <- new.env()
+    loaded_data <- load(existing_rdata, envir = env)
+    existing_data <- get(loaded_data, envir = env)
 
     say("Processing agency assignments...")
     fact_filtered <- process_fact_agencies(
-      det_data,
+      existing_data,
       unwanted_agencies_file = if (file.exists(ref_files$unwanted_agencies)) ref_files$unwanted_agencies else NULL,
       agency_lookup_file = if (file.exists(ref_files$agency_lookup)) ref_files$agency_lookup else NULL,
       verbose = verbose,
@@ -1054,6 +1493,9 @@ process_fact_workflow <- function(
       say()
     }
 
+    FACT_detections <- fact_corrected
+    save(FACT_detections, file = existing_rdata)
+
     return(fact_corrected[])
   }
 
@@ -1064,7 +1506,6 @@ process_fact_workflow <- function(
                                datetime_col = datetime_col,
                                transmitter_col = transmitter_col,
                                station_col = station_col,
-                               receiver_col = receiver_col,
                                lat_col = lat_col,
                                lon_col = lon_col,
                                poc_col = poc_col,
@@ -1183,6 +1624,9 @@ process_fact_workflow <- function(
     merge_stats = list(
       n_new = merge_result$n_new,
       n_duplicates = merge_result$n_duplicates,
+      n_exact_duplicates = merge_result$n_exact_duplicates,
+      n_precision_duplicates = merge_result$n_precision_duplicates,
+      n_old_rows_replaced = merge_result$n_old_rows_replaced,
       n_total = merge_result$n_total
     ),
     validation = validation_result

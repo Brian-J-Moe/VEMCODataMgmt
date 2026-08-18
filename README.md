@@ -17,9 +17,6 @@ Brian Moe
   - [Importing new data](#importing-new-data)
   - [Post processing and data
     summarizations](#post-processing-and-data-summarizations)
-- [Merge new FACT data and new Charlotte Harbor data with existing
-  database](#merge-new-fact-data-and-new-charlotte-harbor-data-with-existing-database)
-- [Examples of summary statistics](#examples-of-summary-statistics)
 
 This README guides the user through processing new passive acoustic
 detection data. In it, we walk through cleaning and standardizing new
@@ -165,7 +162,7 @@ result <- VEMCODataMgmt::process_fact_workflow(
 #> 
 #> ========================================
 #> FACT DATA PROCESSING WORKFLOW
-#> Started: 2026-08-18 11:17:11
+#> Started: 2026-08-18 11:25:59
 #> ========================================
 #> Importing FACT CSV files...
 #> Found 12 CSV file(s)
@@ -220,8 +217,8 @@ result <- VEMCODataMgmt::process_fact_workflow(
 #> 
 #> ========================================
 #> WORKFLOW COMPLETE
-#> Finished: 2026-08-18 11:17:18
-#> Elapsed: 7.2 seconds
+#> Finished: 2026-08-18 11:26:06
+#> Elapsed: 7.4 seconds
 #> ========================================
 ```
 
@@ -593,34 +590,3 @@ favorite_results <- list()
     }
   }
 ```
-
-## Merge new FACT data and new Charlotte Harbor data with existing database
-
-This is the final phase in quality control of new detections. All new
-detections from the FACT Network and/or FWC owned receivers are merged
-and standardized to the format of the primary database. A final phase of
-quality control is conducted followed by a merger with the existing
-database. Lastly we do a final check for duplicate detections (largely a
-byproduct of iTag users uploading old data to the FACT Network) before
-subsetting the data into smaller more workable datasets. In this step,
-the following datasets are produced:
-
-1.  A cleaned and standardized dataset containing all detections
-    associated with FWC Charlotte Harbor owned tags across FACT, iTag,
-    and FWC Charlotte Harbor receivers.
-2.  A series of subsetted datasets for individual species
-
-Each of the datasets produced contain columns identifying:
-
-1.  Species and sex
-2.  Capture Date
-3.  Length and estimated age at time of capture
-4.  Estimated length and age at detection time *t*
-5.  The project for which the tag was deployed (`FWCSAW` or `IRL`)
-6.  The agency who owns the receiver making the detection
-7.  The geographical region in which the receiver is located
-
-This allows for easy extraction of data of particular interest and for
-the generation of informative summary statistics.
-
-## Examples of summary statistics

@@ -166,7 +166,7 @@ result <- VEMCODataMgmt::process_fact_workflow(
 #> 
 #> ========================================
 #> FACT DATA PROCESSING WORKFLOW
-#> Started: 2026-08-18 15:09:42
+#> Started: 2026-08-18 15:24:10
 #> ========================================
 #> Importing FACT CSV files...
 #> Found 12 CSV file(s)
@@ -221,8 +221,8 @@ result <- VEMCODataMgmt::process_fact_workflow(
 #> 
 #> ========================================
 #> WORKFLOW COMPLETE
-#> Finished: 2026-08-18 15:09:49
-#> Elapsed: 6.9 seconds
+#> Finished: 2026-08-18 15:24:17
+#> Elapsed: 7.2 seconds
 #> ========================================
 ```
 
@@ -498,7 +498,7 @@ detections.
 ``` r
 # Sort newly downloaded receiver logs
 sort_result <- VEMCODataMgmt::sort_VRL_logs(vrl_dir, out_dir, after_date = after_date) 
-#> ⏱️  Started: 2026-08-18 15:09:49 (32BKD74)
+#> ⏱️  Started: 2026-08-18 15:24:18 (32BKD74)
 #> 
 #> 🔎 Scanning for .vrl and .csv in: example_folder/Receiver Logs
 #> 
@@ -523,17 +523,17 @@ sort_result <- VEMCODataMgmt::sort_VRL_logs(vrl_dir, out_dir, after_date = after
 #>   |                                                                              |                                                                      |   0%  |                                                                              |=======================                                               |  33%  |                                                                              |===============================================                       |  67%  |                                                                              |======================================================================| 100%
 #>     ✅ 2026-03-16 complete (3/3 copied).
 #> • Total copied: 165 file(s).
-#>    ⏱️  Copy files: 0.4s
+#>    ⏱️  Copy files: 0.3s
 #> 
 #> 💾 Writing per-date RData files...
 #>   |                                                                              |                                                                      |   0%  |                                                                              |==============                                                        |  20%  |                                                                              |============================                                          |  40%  |                                                                              |==========================================                            |  60%  |                                                                              |========================================================              |  80%  |                                                                              |======================================================================| 100%
-#>    ⏱️  Per-date RData: 4.4s
+#>    ⏱️  Per-date RData: 4.3s
 #> 
 #> 📊 Building combined detections (all dates)...
 #> ✅ Combined detections saved: example_folder/Logs by Date/detections_all_2026-08-18.RData (rows: 2,064,983)
-#>    ⏱️  Combined RData: 4.2s
+#>    ⏱️  Combined RData: 4.1s
 #> 
-#> ⏱️  Finished: 2026-08-18 15:09:58  •  Elapsed: 9.1s
+#> ⏱️  Finished: 2026-08-18 15:24:26  •  Elapsed: 8.8s
 
 # Import new data
 new_det_full <- VEMCODataMgmt::load_detections_by_date(out_dir, after_date = after_date, verbose = FALSE)
@@ -642,23 +642,33 @@ overall_summary <- new_det[, .(
   last_det = max(`Date and Time (UTC)`)       # last detection
 ), by = .(Transmitter)][order(Transmitter)]   # group by "Transmitter" and set logical order
 
-head(overall_summary)
-#>       Transmitter n_detections n_stations           first_det
-#>            <char>        <int>      <int>              <POSc>
-#> 1:  A69-9001-1787         2739         29 2025-12-01 07:16:44
-#> 2: A69-9001-42814         2302          6 2025-12-05 22:38:26
-#> 3: A69-9001-42817          639          2 2025-12-05 23:45:41
-#> 4: A69-9001-42818         1968          7 2025-12-06 02:46:41
-#> 5: A69-9001-42819         1695          2 2025-12-06 02:50:56
-#> 6: A69-9001-42830         1066          6 2025-12-09 16:28:01
-#>               last_det
-#>                 <POSc>
-#> 1: 2026-01-29 09:51:11
-#> 2: 2026-02-23 23:54:34
-#> 3: 2026-02-24 10:04:31
-#> 4: 2026-02-24 11:44:26
-#> 5: 2026-02-24 06:47:07
-#> 6: 2026-02-24 15:41:26
+print(overall_summary, nrows = 20)
+#>        Transmitter n_detections n_stations           first_det
+#>             <char>        <int>      <int>              <POSc>
+#>  1:  A69-9001-1787         2739         29 2025-12-01 07:16:44
+#>  2: A69-9001-42814         2302          6 2025-12-05 22:38:26
+#>  3: A69-9001-42817          639          2 2025-12-05 23:45:41
+#>  4: A69-9001-42818         1968          7 2025-12-06 02:46:41
+#>  5: A69-9001-42819         1695          2 2025-12-06 02:50:56
+#> ---                                                           
+#> 49: A69-9001-57425           12          2 2025-12-03 04:52:33
+#> 50: A69-9001-57437        10793         35 2025-12-01 07:40:17
+#> 51: A69-9001-57439           83          5 2026-01-19 04:33:15
+#> 52: A69-9001-60301          150         14 2025-11-26 02:30:19
+#> 53: A69-9001-60378            4          1 2026-01-17 16:24:16
+#>                last_det
+#>                  <POSc>
+#>  1: 2026-01-29 09:51:11
+#>  2: 2026-02-23 23:54:34
+#>  3: 2026-02-24 10:04:31
+#>  4: 2026-02-24 11:44:26
+#>  5: 2026-02-24 06:47:07
+#> ---                    
+#> 49: 2026-01-26 07:34:06
+#> 50: 2026-03-04 10:35:18
+#> 51: 2026-02-09 07:51:28
+#> 52: 2026-01-16 02:12:08
+#> 53: 2026-02-03 14:54:30
 ```
 
 ``` r
@@ -672,52 +682,58 @@ gb_summary <- gb_det[, .(
   last_det = max(`Date and Time (UTC)`)
 ), by = .(Transmitter)][order(Transmitter)]
 
-head(gb_summary)
-#>       Transmitter n_detections n_stations           first_det
-#>            <char>        <int>      <int>              <POSc>
-#> 1:  A69-9001-1787         1892         13 2025-12-14 02:06:20
-#> 2: A69-9001-42838        14996         17 2025-12-16 07:36:57
-#> 3: A69-9001-46966        18697         18 2025-12-13 09:46:42
-#> 4: A69-9001-46969         3595         18 2026-01-09 03:32:00
-#> 5: A69-9001-46996         9931         18 2025-12-12 23:03:51
-#> 6: A69-9001-46997         8142         17 2026-01-21 04:34:19
-#>               last_det
-#>                 <POSc>
-#> 1: 2026-01-29 06:51:44
-#> 2: 2026-02-08 18:22:47
-#> 3: 2026-02-25 04:59:27
-#> 4: 2026-02-09 09:16:04
-#> 5: 2026-03-12 11:03:21
-#> 6: 2026-02-04 22:15:04
+print(gb_summary, nrows = 20)
+#>        Transmitter n_detections n_stations           first_det
+#>             <char>        <int>      <int>              <POSc>
+#>  1:  A69-9001-1787         1892         13 2025-12-14 02:06:20
+#>  2: A69-9001-42838        14996         17 2025-12-16 07:36:57
+#>  3: A69-9001-46966        18697         18 2025-12-13 09:46:42
+#>  4: A69-9001-46969         3595         18 2026-01-09 03:32:00
+#>  5: A69-9001-46996         9931         18 2025-12-12 23:03:51
+#> ---                                                           
+#> 20: A69-9001-54946        12901         18 2025-12-14 02:38:11
+#> 21: A69-9001-54951         9602         18 2025-12-12 22:45:48
+#> 22: A69-9001-54956            4          1 2025-12-23 07:59:45
+#> 23: A69-9001-54962            1          1 2026-03-04 13:00:47
+#> 24: A69-9001-57437        10044         18 2025-12-13 06:21:04
+#>                last_det
+#>                  <POSc>
+#>  1: 2026-01-29 06:51:44
+#>  2: 2026-02-08 18:22:47
+#>  3: 2026-02-25 04:59:27
+#>  4: 2026-02-09 09:16:04
+#>  5: 2026-03-12 11:03:21
+#> ---                    
+#> 20: 2026-03-03 05:45:00
+#> 21: 2026-02-25 01:46:31
+#> 22: 2025-12-23 08:16:10
+#> 23: 2026-03-04 13:00:47
+#> 24: 2026-03-04 10:35:18
 ```
 
 ``` r
 # Summarize for specific fish of interest
-favorite_fish <- list(
-  "Pumpkin"       = "A69-9001-57441",
-  "Helga"         = "A69-9001-42821",
-  "Big Mamma"     = "A69-9001-42829",
-  "Small Fry"     = "A69-9001-54931",
-  "Lone Wanderer" = "A69-9001-12369"
+fish_lookup <- data.table(
+  fish_name = c("Pumpkin", "Helga", "Big Mamma", "Small Fry", "Lone Wanderer"),
+  Transmitter = c("A69-9001-57441", "A69-9001-42821", "A69-9001-42829", "A69-9001-54931", "A69-9001-12369")
 )
 
-favorite_results <- list()
-  for (fish_name in names(favorite_fish)) {
-    trans_id <- favorite_fish[[fish_name]]
-    
-    if (trans_id %in% new_det$Transmitter) {
-      fish_summary <- new_det[Transmitter == trans_id, .(
-        n_detections = .N,
-        first_det = min(`Date and Time (UTC)`),
-        last_det = max(`Date and Time (UTC)`)
-      ), by = .(`Station Name`)][order(-last_det)]
-      
-      favorite_results[[fish_name]] <- fish_summary
-    } else {
-      favorite_results[[fish_name]] <- NULL
-    }
-  }
+favorite_results <- new_det[fish_lookup, on = .(Transmitter), nomatch = NULL][
+  , .(
+    n_detections = .N,
+    first_det = min(`Date and Time (UTC)`),
+    last_det = max(`Date and Time (UTC)`)
+  ), 
+  by = .(fish_name, Transmitter, `Station Name`)
+][order(-last_det)]
+#> Warning in min.default(structure(numeric(0), class = c("POSIXct", "POSIXt": no
+#> non-missing arguments to min; returning Inf
+#> Warning in max.default(structure(numeric(0), class = c("POSIXct", "POSIXt": no
+#> non-missing arguments to max; returning -Inf
 
 favorite_results
-#> list()
+#> Empty data.table (0 rows and 6 cols): fish_name,Transmitter,Station Name,n_detections,first_det,last_det
 ```
+
+*In this case, none of the ‘favorite fish’ were detected in the new
+data*

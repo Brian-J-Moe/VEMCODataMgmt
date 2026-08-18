@@ -353,7 +353,7 @@ overall_summary <- new_det[, .(
   last_det = max(`Date and Time (UTC)`)       # last detection
 ), by = .(Transmitter)][order(Transmitter)]   # group by "Transmitter" and set logical order
 
-head(overall_summary)
+print(overall_summary, nrows = 20)
 ```
 
 ```{r}
@@ -369,39 +369,28 @@ gb_summary <- gb_det[, .(
   last_det = max(`Date and Time (UTC)`)
 ), by = .(Transmitter)][order(Transmitter)]
 
-head(gb_summary)
+print(gb_summary, nrows = 20)
 ```
 
 ```{r}
 #| eval: true
 
 # Summarize for specific fish of interest
-favorite_fish <- list(
-  "Pumpkin"       = "A69-9001-57441",
-  "Helga"         = "A69-9001-42821",
-  "Big Mamma"     = "A69-9001-42829",
-  "Small Fry"     = "A69-9001-54931",
-  "Lone Wanderer" = "A69-9001-12369"
+fish_lookup <- data.table(
+  fish_name = c("Pumpkin", "Helga", "Big Mamma", "Small Fry", "Lone Wanderer"),
+  Transmitter = c("A69-9001-57441", "A69-9001-42821", "A69-9001-42829", "A69-9001-54931", "A69-9001-12369")
 )
 
-favorite_results <- list()
-  for (fish_name in names(favorite_fish)) {
-    trans_id <- favorite_fish[[fish_name]]
-    
-    if (trans_id %in% new_det$Transmitter) {
-      fish_summary <- new_det[Transmitter == trans_id, .(
-        n_detections = .N,
-        first_det = min(`Date and Time (UTC)`),
-        last_det = max(`Date and Time (UTC)`)
-      ), by = .(`Station Name`)][order(-last_det)]
-      
-      favorite_results[[fish_name]] <- fish_summary
-    } else {
-      favorite_results[[fish_name]] <- NULL
-    }
-  }
+favorite_results <- new_det[fish_lookup, on = .(Transmitter), nomatch = NULL][
+  , .(
+    n_detections = .N,
+    first_det = min(`Date and Time (UTC)`),
+    last_det = max(`Date and Time (UTC)`)
+  ), 
+  by = .(fish_name, Transmitter, `Station Name`)
+][order(-last_det)]
 
 favorite_results
 ```
 
-
+*In this case, none of the 'favorite fish' were detected in the new data*
